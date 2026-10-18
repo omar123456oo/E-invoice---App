@@ -1,0 +1,45 @@
+# Local development stack. Not a production deployment (see docs/deployment.md).
+services:
+  mongo:
+    image: mongo:7.0
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27017:27017"]
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      # Initiates the single-node replica set on first start (transactions require a replica set).
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes: [redis-data:/data]
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    env_file: apps/api/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/ereceipt?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+    ports: ["3000:3000"]
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    command: ["node", "dist/jobs/worker.js"]
+    env_file: apps/api/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/ereceipt?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_started }
+
+volumes:
+  mongo-data:
+  redis-data:

@@ -1,0 +1,15 @@
+{
+  "name": "eg-ereceipt-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "B2C e-receipt and sales management platform for the Egyptian market",
+  "workspaces": ["apps/api", "apps/web"],
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "test": "npm test -w apps/api && npm test -w apps/web",
+    "lint": "npm run lint -w apps/api",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm start -w apps/web"
+  }
+}
