@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { RECONCILE_GRACE_MS } from '../src/modules/eta/eta-integration.service.js';
 import { EtaSubmissionModel } from '../src/modules/eta/eta-submission.model.js';
 import { ReceiptModel } from '../src/modules/receipts/receipt.model.js';
+import { PosDeviceModel } from '../src/modules/pos/pos-device.model.js';
 import { bearer, login, openShift, seedCompany, sell, useTestApp } from './helpers.js';
 
 // All ETA responses in this file come from the SIMULATED ETA test double. Passing tests here
@@ -161,5 +162,17 @@ describe('ETA receipt lifecycle (SIMULATED ETA)', () => {
     const res = await request(t.app).get('/api/v1/eta/status').set(bearer(owner));
     expect(res.body.simulated).toBe(true);
     expect(res.body.warnings.join(' ')).toContain('SIMULATED');
+  });
+
+  it('clears credential backoff when new device credentials are saved (regression)', async () => {
+    const { s, ids } = await saleSetup(1);
+    await PosDeviceModel.updateOne({ tenantId: s.tenantId, _id: s.deviceId }, { $set: { etaCredentialsEnc: null } });
+    expect((await t.service.submitDevice(s.tenantId, s.deviceId)).reason).toBe('ETA_CREDENTIALS_MISSING');
+    expect((await t.service.submitDevice(s.tenantId, s.deviceId)).reason).toBe('BACKOFF');
+    const owner = await login(t.app, s.users.COMPANY_OWNER!.email);
+    const put = await request(t.app).put(`/api/v1/pos-devices/${s.deviceId}/eta-credentials`).set(bearer(owner)).send({ clientId: 'c', clientSecret: 's', presharedKey: '' });
+    expect(put.status).toBe(204);
+    expect((await t.service.submitDevice(s.tenantId, s.deviceId)).outcome).toBe('SUBMITTED');
+    expect((await status(s.tenantId, ids[0]!)).status).toBe('SUBMITTED');
   });
 });

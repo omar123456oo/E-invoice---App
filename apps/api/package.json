@@ -13,7 +13,8 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "openapi": "tsx src/scripts/export-openapi.ts"
+    "openapi": "tsx src/scripts/export-openapi.ts",
+    "dev:memory": "tsx src/scripts/dev-memory.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "8.5.0",

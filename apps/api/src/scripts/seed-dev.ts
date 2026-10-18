@@ -21,10 +21,12 @@ const password = process.env.SEED_PASSWORD ?? 'ChangeMe-Dev-Only-123';
 await connectMongo(cfg.MONGODB_URI);
 await Promise.all(Object.values(mongoose.models).map((m) => m.syncIndexes()));
 
-if (await TenantModel.exists({ taxRegistrationNumber: '000000000' })) {
-  console.log('Demo company already exists; nothing to do.');
-  process.exit(0);
-}
+const alreadySeeded = await TenantModel.exists({ taxRegistrationNumber: '000000000' });
+if (alreadySeeded) console.log('Demo company already exists; nothing to do.');
+else await seed();
+if (process.argv[1]?.endsWith('seed-dev.ts') || process.argv[1]?.endsWith('seed-dev.js')) await mongoose.disconnect();
+
+async function seed(): Promise<void> {
 const passwordHash = await hashPassword(password);
 await UserModel.create({ tenantId: null, email: 'platform@demo.local', name: 'Platform Admin', passwordHash, role: 'PLATFORM_ADMIN' });
 const tenant = await TenantModel.create({
@@ -51,5 +53,5 @@ await ProductModel.create([
   { ...p, internalCode: 'DEMO-002', barcode: '6220000000024', nameAr: 'خبز', nameEn: 'Bread', description: 'Bread loaf', etaItemCode: 'EG-000000000-002', unitPrice: '5.00', taxCodes: ['VAT_EXEMPT'] },
   { ...p, internalCode: 'DEMO-003', barcode: '6220000000031', nameAr: 'قهوة', nameEn: 'Coffee', description: 'Ground coffee 250g', etaItemCode: 'EG-000000000-003', unitPrice: '120.00', taxCodes: ['VAT_STD'] },
 ]);
-console.log('Seeded DEMO data. Users: platform@demo.local, owner@demo.local, cashier@demo.local, finance@demo.local');
-await mongoose.disconnect();
+console.log(`Seeded DEMO data. Users: platform@demo.local, owner@demo.local, cashier@demo.local, finance@demo.local (password: ${process.env.SEED_PASSWORD ? 'from SEED_PASSWORD' : password})`);
+}

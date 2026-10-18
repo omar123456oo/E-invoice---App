@@ -7,6 +7,8 @@ import { assertBranchAccess, branchFilter, requireTenant } from '../../common/se
 import { fromContext, recordAudit } from '../audit/audit.service.js';
 import { BranchModel } from '../branches/branch.model.js';
 import { PosDeviceModel } from './pos-device.model.js';
+import { ReceiptModel } from '../receipts/receipt.model.js';
+import { getEtaServiceOrNull } from '../eta/eta-integration.service.js';
 
 const DeviceBody = z.object({
   branchId: objectIdString,
@@ -73,6 +75,12 @@ export function posDeviceRouter(): Router {
           { $set: { etaCredentialsEnc: encryptSecret(JSON.stringify(body)), etaCredentialsUpdatedAt: new Date() } },
         );
         if (res.matchedCount === 0) throw AppError.notFound('POS device');
+        // New credentials remove the cause of credential/auth backoff: let queued receipts be retried immediately.
+        await ReceiptModel.updateMany(
+          { tenantId, deviceId: params.id, 'eta.status': 'QUEUED', 'eta.nextAttemptAt': { $ne: null } },
+          { $set: { 'eta.nextAttemptAt': null, 'eta.lastError': { code: null, message: null, details: null } } },
+        );
+        getEtaServiceOrNull()?.forgetDeviceToken(tenantId, params.id);
         await recordAudit({ ...fromContext(ctx), action: 'pos_device.eta_credentials_updated', entityType: 'PosDevice', entityId: params.id, summary: 'Credentials replaced' });
         return undefined;
       },

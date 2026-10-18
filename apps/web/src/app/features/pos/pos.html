@@ -1,0 +1,149 @@
+<div class="pos">
+  <header class="bar no-print">
+    <h1>{{ i18n.t('pos.title') }}</h1>
+    <span class="spacer"></span>
+    <mat-form-field class="device" subscriptSizing="dynamic">
+      <mat-label>{{ i18n.t('pos.device') }}</mat-label>
+      <mat-select [value]="deviceId()" (selectionChange)="selectDevice($event.value)" [disabled]="!!shift()">
+        @for (d of devices(); track d.id) { <mat-option [value]="d.id">{{ d.name }} ({{ d.code }})</mat-option> }
+      </mat-select>
+    </mat-form-field>
+    @if (shift(); as s) {
+      @if (closing()) {
+        <mat-form-field class="cash"><mat-label>{{ i18n.t('pos.countedCash') }}</mat-label><input matInput inputmode="decimal" [(ngModel)]="countedCash" dir="ltr" /></mat-form-field>
+        <button mat-flat-button class="btn-primary" (click)="closeShift()">{{ i18n.t('common.confirm') }}</button>
+        <button mat-button (click)="closing.set(false)">{{ i18n.t('common.cancel') }}</button>
+      } @else {
+        <button mat-stroked-button (click)="closing.set(true)">{{ i18n.t('pos.closeShift') }}</button>
+      }
+    }
+  </header>
+
+  @if (!shift() && shiftLoaded()) {
+    <section class="panel open-shift no-print">
+      @if (closedShift(); as c) {
+        <p>{{ i18n.t('pos.shiftClosed') }}: {{ i18n.t('pos.expected') }} <strong class="money">{{ c.expectedCash | money }}</strong>,
+          {{ i18n.t('pos.variance') }} <strong class="money" [class.error-text]="c.variance !== '0.00'">{{ c.variance | money }}</strong></p>
+      }
+      <p>{{ i18n.t('pos.noShift') }}</p>
+      <div class="row">
+        <mat-form-field><mat-label>{{ i18n.t('pos.openingCash') }}</mat-label><input matInput inputmode="decimal" [(ngModel)]="openingCash" dir="ltr" /></mat-form-field>
+        <button mat-flat-button class="btn-primary" [disabled]="!deviceId()" (click)="openShift()">{{ i18n.t('pos.openShift') }}</button>
+      </div>
+    </section>
+  }
+
+  @if (shift()) {
+    <div class="work">
+      <section class="catalog no-print">
+        <mat-form-field class="full search">
+          <mat-label>{{ i18n.t('pos.scan') }}</mat-label>
+          <input #searchBox matInput [(ngModel)]="query" (keydown.enter)="scan()" (input)="search()" autocomplete="off" autofocus />
+          <mat-hint dir="ltr">F2 search, F9 pay</mat-hint>
+        </mat-form-field>
+        <ul class="results" role="listbox">
+          @for (p of results(); track p.id) {
+            <li><button type="button" class="result" (click)="addProduct(p)">
+              <span class="pname">{{ name(p) }}</span>
+              <span class="pcode num muted">{{ p.internalCode }}</span>
+              <span class="pprice money">{{ p.unitPrice | money }}</span>
+            </button></li>
+          }
+        </ul>
+      </section>
+
+      <section class="ticket">
+        @if (done(); as d) {
+          <div class="done stack">
+            <app-receipt-print [receipt]="d.receipt" />
+            @if (d.change !== '0.00') { <p class="change-due no-print">{{ i18n.t('pos.change') }}: <strong class="money">{{ d.change | money }}</strong></p> }
+            <div class="row no-print">
+              <button mat-stroked-button (click)="print(d.receipt)">{{ i18n.t('pos.print') }}</button>
+              <span class="spacer"></span>
+              <button mat-flat-button class="btn-primary" (click)="newSale()">{{ i18n.t('pos.newSale') }}</button>
+            </div>
+          </div>
+        } @else {
+          <h2>{{ i18n.t('pos.cart') }}</h2>
+          @if (cart.isEmpty()) {
+            <p class="muted empty">{{ i18n.t('pos.emptyCart') }}</p>
+          } @else {
+            <table class="data lines">
+              <thead><tr><th></th><th>{{ i18n.t('pos.qty') }}</th><th>{{ i18n.t('pos.discount') }}</th><th class="end">{{ i18n.t('common.total') }}</th><th></th></tr></thead>
+              <tbody>
+                @for (l of cart.lines(); track l.product.id; let i = $index) {
+                  <tr>
+                    <td>{{ name(l.product) }}<div class="muted small money">{{ l.product.unitPrice | money }}</div></td>
+                    <td class="qty">
+                      <button mat-icon-button type="button" (click)="cart.step(i, -1)" aria-label="-">−</button>
+                      <input class="qty-input num" [ngModel]="l.quantity" (change)="cart.setQuantity(i, $any($event.target).value)" inputmode="decimal" [attr.aria-label]="i18n.t('pos.qty')" />
+                      <button mat-icon-button type="button" (click)="cart.step(i, 1)" aria-label="+">+</button>
+                    </td>
+                    <td><input class="disc-input num" [ngModel]="l.discountRate" (change)="cart.setDiscount(i, $any($event.target).value)" inputmode="decimal" placeholder="0" [attr.aria-label]="i18n.t('pos.discount')" /></td>
+                    <td class="end money">{{ cart.quote()?.lines?.[i]?.total | money }}</td>
+                    <td><button mat-button type="button" (click)="cart.remove(i)">{{ i18n.t('pos.remove') }}</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            <div class="sums">
+              @if (cart.quote(); as q) {
+                <div class="r"><span>{{ i18n.t('pos.subtotal') }}</span><span class="money">{{ q.totals.netAmount | money }}</span></div>
+                @if (q.totals.totalCommercialDiscount !== '0.00') { <div class="r muted"><span>{{ i18n.t('pos.discounts') }}</span><span class="money">-{{ q.totals.totalCommercialDiscount | money }}</span></div> }
+                <div class="r"><span>{{ i18n.t('pos.tax') }}</span><span class="money">{{ taxTotal() | money }}</span></div>
+                <div class="r grand"><span>{{ i18n.t('pos.total') }}</span><span class="money">{{ q.totals.totalAmount | money }}</span></div>
+              } @else if (cart.quoting()) {
+                <p class="muted">{{ i18n.t('pos.calculating') }}</p>
+              } @else if (cart.quoteError()) {
+                <p class="error-text" role="alert">{{ notifyText(cart.quoteError()) }}</p>
+              }
+            </div>
+
+            <div class="tender stack">
+              @if (split().length === 0) {
+                <div class="methods" role="radiogroup" [attr.aria-label]="i18n.t('pos.pay')">
+                  @for (m of ['CASH', 'CARD', 'WALLET']; track m) {
+                    <button type="button" class="method" role="radio" [attr.aria-checked]="method() === m" [class.on]="method() === m" (click)="method.set($any(m))">{{ i18n.t('pay.' + m) }}</button>
+                  }
+                  <button type="button" class="method ghost" (click)="addSplit()">{{ i18n.t('pos.split') }}</button>
+                </div>
+                @if (method() === 'CASH') {
+                  <div class="row">
+                    <mat-form-field><mat-label>{{ i18n.t('pos.tendered') }}</mat-label><input matInput inputmode="decimal" [(ngModel)]="tendered" (ngModelChange)="updateChange()" dir="ltr" /></mat-form-field>
+                    @if (change(); as c) { <div class="change">{{ i18n.t('pos.change') }} <strong class="money">{{ c | money }}</strong></div> }
+                  </div>
+                } @else {
+                  <mat-form-field class="full"><mat-label>{{ i18n.t('pos.authCode') }}</mat-label><input matInput [(ngModel)]="reference" maxlength="40" autocomplete="off" dir="ltr" /></mat-form-field>
+                }
+              } @else {
+                @for (t of split(); track $index) {
+                  <div class="row">
+                    <mat-form-field class="m"><mat-select [(ngModel)]="t.method">@for (m of ['CASH', 'CARD', 'WALLET']; track m) { <mat-option [value]="m">{{ i18n.t('pay.' + m) }}</mat-option> }</mat-select></mat-form-field>
+                    <mat-form-field class="a"><input matInput [(ngModel)]="t.amount" inputmode="decimal" dir="ltr" /></mat-form-field>
+                    @if (t.method !== 'CASH') { <mat-form-field class="a"><mat-label>{{ i18n.t('pos.authCode') }}</mat-label><input matInput [(ngModel)]="t.reference" maxlength="40" dir="ltr" /></mat-form-field> }
+                  </div>
+                }
+                <div class="row"><button mat-button type="button" (click)="addSplit()">{{ i18n.t('pos.addPayment') }}</button><span class="spacer"></span><span class="muted">{{ i18n.t('pos.remaining') }} <span class="money">{{ splitRemaining() | money }}</span></span></div>
+              }
+
+              @if (buyerNeeded()) {
+                <fieldset class="buyer">
+                  <legend>{{ i18n.t('pos.buyerRequired') }}</legend>
+                  <div class="row">
+                    <mat-form-field><mat-label>{{ i18n.t('pos.buyerName') }}</mat-label><input matInput [(ngModel)]="buyerName" maxlength="100" /></mat-form-field>
+                    <mat-form-field><mat-label>{{ i18n.t('pos.nationalId') }}</mat-label><input matInput [(ngModel)]="buyerId" inputmode="numeric" maxlength="14" dir="ltr" autocomplete="off" /></mat-form-field>
+                  </div>
+                </fieldset>
+              }
+
+              <button mat-flat-button class="btn-primary pay" [disabled]="busy() || !cart.quote() || cart.quoting()" (click)="complete()">
+                {{ i18n.t('pos.complete') }} @if (total()) { — <span class="money">{{ total() | money }}</span> }
+              </button>
+            </div>
+          }
+        }
+      </section>
+    </div>
+  }
+</div>

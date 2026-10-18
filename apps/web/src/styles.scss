@@ -1,0 +1,86 @@
+@use '@angular/material' as mat;
+
+/* Design tokens. One family (IBM Plex Sans Arabic) for Arabic and Latin; tabular figures for money. */
+:root {
+  --ink: #0e3b43;
+  --ink-soft: #2f5960;
+  --text: #17252a;
+  --muted: #5a6c71;
+  --paper: #f3f6f5;
+  --panel: #ffffff;
+  --line: #d8e0de;
+  --brass: #b9861c;
+  --brass-strong: #94690f;
+  --ok: #1f7a4d;
+  --pending: #9a6a12;
+  --bad: #b42318;
+  --verify: #51636b;
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --space: 8px;
+  --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+}
+
+html {
+  color-scheme: light;
+  @include mat.theme((
+    color: (theme-type: light, primary: mat.$cyan-palette, tertiary: mat.$orange-palette),
+    typography: (plain-family: var(--font), brand-family: var(--font)),
+    density: 0,
+  ));
+  @include mat.toolbar-overrides((container-background-color: var(--ink), container-text-color: #fff));
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--paper);
+}
+.num, .money { font-variant-numeric: tabular-nums; }
+h1, h2, h3 { color: var(--ink); line-height: 1.25; margin: 0 0 calc(var(--space) * 2); }
+h1 { font-size: 1.6rem; font-weight: 700; }
+h2 { font-size: 1.2rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+a { color: var(--ink-soft); }
+
+:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: calc(var(--space) * 2.5);
+  overflow-x: auto;
+}
+.stack { display: flex; flex-direction: column; gap: calc(var(--space) * 2); }
+.row { display: flex; gap: calc(var(--space) * 1.5); align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); }
+.error-text { color: var(--bad); }
+.full { width: 100%; }
+
+/* Data tables: quiet rules instead of boxes. */
+table.data { width: 100%; border-collapse: collapse; }
+table.data th { text-align: start; font-weight: 600; color: var(--muted); font-size: 0.85rem; padding: 8px 10px; border-bottom: 2px solid var(--line); }
+table.data td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.data tr.clickable { cursor: pointer; }
+table.data tr.clickable:hover td { background: #f8faf9; }
+table.data td.end, table.data th.end { text-align: end; }
+table.data td.num, table.data td.money { white-space: nowrap; }
+
+.btn-primary.mat-mdc-unelevated-button:not(:disabled) { background: var(--brass); color: #1b1300; }
+.btn-primary.mat-mdc-unelevated-button:not(:disabled):hover { background: var(--brass-strong); color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+}

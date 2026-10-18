@@ -72,6 +72,11 @@ export class EtaIntegrationService {
     return res.modifiedCount;
   }
 
+  /** Drops a cached access token, e.g. after credentials were replaced. */
+  forgetDeviceToken(tenantId: Types.ObjectId | string, deviceId: Types.ObjectId | string): void {
+    this.tokens.invalidate(`${tenantId}:${deviceId}`);
+  }
+
   private async credentials(tenantId: Types.ObjectId, deviceId: Types.ObjectId): Promise<PosCredentials> {
     const d = await PosDeviceModel.findOne({ _id: deviceId, tenantId }).select('+etaCredentialsEnc').lean();
     if (!d?.etaCredentialsEnc) throw new AppError(422, 'ETA_CREDENTIALS_MISSING', 'ETA POS credentials are not configured for this device');
@@ -359,6 +364,9 @@ export class EtaIntegrationService {
 let service: EtaIntegrationService | undefined;
 export function getEtaService(): EtaIntegrationService {
   if (!service) throw new Error('ETA integration service is not configured');
+  return service;
+}
+export function getEtaServiceOrNull(): EtaIntegrationService | undefined {
   return service;
 }
 export function setEtaService(s: EtaIntegrationService | undefined): void {
