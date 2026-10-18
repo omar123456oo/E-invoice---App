@@ -4,6 +4,7 @@ import { dec, DECIMAL_STRING_RE, sum } from '../../common/money/decimal.js';
 import { assertBranchAccess, hasPermission, requireTenant, type RequestContext } from '../../common/security/context.js';
 import { fromContext, recordAudit } from '../audit/audit.service.js';
 import { PaymentModel } from '../payments/payment.model.js';
+import { notify } from '../notifications/notification.service.js';
 import { CashierShiftModel } from './cashier-shift.model.js';
 import { PosDeviceModel } from './pos-device.model.js';
 
@@ -48,6 +49,14 @@ export async function closeShift(ctx: RequestContext, shiftId: string, countedCa
     { new: true },
   );
   if (!updated) throw AppError.conflict('Shift was closed concurrently', 'SHIFT_CLOSED');
+  if (!dec(variance).isZero()) {
+    await notify({
+      tenantId, kind: 'CASH_VARIANCE', severity: 'warning', permission: 'pos:shifts:manage',
+      title: { en: `Cash variance of ${variance} EGP at shift close`, ar: `فرق نقدية ${variance} جنيه عند إغلاق الوردية` },
+      body: { en: `Expected ${expected}, counted ${countedCash}.${notes ? ` Note: ${notes}` : ''}`, ar: `المتوقع ${expected}، الفعلي ${countedCash}.${notes ? ` ملاحظة: ${notes}` : ''}` },
+      link: '/shifts', entityType: 'CashierShift', entityId: String(shift._id), dedupeKey: `variance:${shift._id}`,
+    });
+  }
   await recordAudit({ ...fromContext(ctx), branchId: shift.branchId, action: 'shift.closed', entityType: 'CashierShift', entityId: shift._id, changes: { countedCash, expected, variance, cashIn, cashOut } });
   return { ...updated.toJSON(), cashIn, cashOut };
 }

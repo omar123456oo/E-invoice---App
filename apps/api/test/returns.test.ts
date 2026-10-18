@@ -114,4 +114,14 @@ describe('returns and refunds', () => {
     expect(r.body.error.code).toBe('ORIGINAL_NOT_RETURNABLE');
     t.eta.behaviour = 'accept';
   });
+
+  it('refuses a cash refund larger than the cash in the drawer', async () => {
+    const s = await seedCompany({ submissionEnabled: false });
+    const cashier = await login(t.app, s.users.CASHIER!.email);
+    await openShift(t.app, cashier, s.deviceId, '0.00');
+    const sale = await sell(t.app, cashier, { deviceId: String(s.deviceId), items: [{ productId: String(s.products.taxed), quantity: '1' }], payments: [{ method: 'CARD', amount: '57.00', reference: 'C77' }] });
+    const r = await createReturn(cashier, { originalReceiptId: sale.body.receipt.id, lines: [{ lineNo: 1, quantity: '1' }], reason: 'Customer return', refundMethod: 'CASH' });
+    const done = await request(t.app).post(`/api/v1/returns/${r.body.return.id}/complete`).set(bearer(cashier)).send({ deviceId: String(s.deviceId) });
+    expect(done.body.error.code).toBe('INSUFFICIENT_DRAWER_CASH');
+  });
 });

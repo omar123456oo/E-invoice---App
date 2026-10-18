@@ -529,6 +529,58 @@
         }
       }
     },
+    "/auth/mfa/disable": {
+      "post": {
+        "summary": "Turn off TOTP (requires password and a current code)",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  }
+                },
+                "required": [
+                  "password",
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/platform/tenants": {
       "post": {
         "summary": "Create a company (tenant) with its owner account",
@@ -851,6 +903,9 @@
                       "maxCashierDiscountPercent": {
                         "type": "string",
                         "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                      },
+                      "emailAlerts": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -3491,6 +3546,136 @@
         }
       }
     },
+    "/receipts/{id}/correct": {
+      "post": {
+        "summary": "Issue a corrected receipt (new UUID, referenceOldUUID) for a rejected, invalid or failed receipt",
+        "description": "Only identification data can be corrected: item codes, unit types, descriptions and buyer details. Allowed within 96 hours of issuance.\n\nRequires permission `receipts:submit`.",
+        "tags": [
+          "Receipts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  },
+                  "useCurrentProductCodes": {
+                    "type": "boolean"
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "lineNo": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "itemType": {
+                          "type": "string",
+                          "enum": [
+                            "GS1",
+                            "EGS"
+                          ]
+                        },
+                        "itemCode": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "unitType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 30
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        }
+                      },
+                      "required": [
+                        "lineNo"
+                      ]
+                    },
+                    "maxItems": 300
+                  },
+                  "buyer": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "P",
+                          "B",
+                          "F"
+                        ]
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "identity": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "mobileNumber": {
+                        "type": "string",
+                        "maxLength": 30
+                      }
+                    },
+                    "required": [
+                      "type"
+                    ]
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/receipts/{id}/reconcile": {
       "post": {
         "summary": "Ask ETA for the status of a receipt whose submission outcome is unknown",
@@ -3869,7 +4054,8 @@
               "type": "string",
               "enum": [
                 "json",
-                "csv"
+                "csv",
+                "xlsx"
               ],
               "default": "json"
             },
@@ -3897,7 +4083,7 @@
     },
     "/reports/sales-by-product": {
       "get": {
-        "summary": "Operational report: sales-by-product (json or csv). Not an official tax return.",
+        "summary": "Operational report: sales-by-product (json, csv or xlsx). Not an official tax return.",
         "description": "Requires permission `reports:read`.",
         "tags": [
           "Reports"
@@ -3946,7 +4132,8 @@
               "type": "string",
               "enum": [
                 "json",
-                "csv"
+                "csv",
+                "xlsx"
               ],
               "default": "json"
             },
@@ -3974,7 +4161,7 @@
     },
     "/reports/sales-by-cashier": {
       "get": {
-        "summary": "Operational report: sales-by-cashier (json or csv). Not an official tax return.",
+        "summary": "Operational report: sales-by-cashier (json, csv or xlsx). Not an official tax return.",
         "description": "Requires permission `reports:read`.",
         "tags": [
           "Reports"
@@ -4023,7 +4210,320 @@
               "type": "string",
               "enum": [
                 "json",
-                "csv"
+                "csv",
+                "xlsx"
+              ],
+              "default": "json"
+            },
+            "required": false,
+            "name": "format",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/tax-summary": {
+      "get": {
+        "summary": "Operational report: tax-summary (json, csv or xlsx). Not an official tax return.",
+        "description": "Requires permission `reports:read`.",
+        "tags": [
+          "Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": false,
+            "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv",
+                "xlsx"
+              ],
+              "default": "json"
+            },
+            "required": false,
+            "name": "format",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/refunds": {
+      "get": {
+        "summary": "Operational report: refunds (json, csv or xlsx). Not an official tax return.",
+        "description": "Requires permission `reports:read`.",
+        "tags": [
+          "Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": false,
+            "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv",
+                "xlsx"
+              ],
+              "default": "json"
+            },
+            "required": false,
+            "name": "format",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/eta-processing": {
+      "get": {
+        "summary": "Operational report: eta-processing (json, csv or xlsx). Not an official tax return.",
+        "description": "Requires permission `reports:read`.",
+        "tags": [
+          "Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": false,
+            "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv",
+                "xlsx"
+              ],
+              "default": "json"
+            },
+            "required": false,
+            "name": "format",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/shift-reconciliation": {
+      "get": {
+        "summary": "Operational report: shift-reconciliation (json, csv or xlsx). Not an official tax return.",
+        "description": "Requires permission `reports:read`.",
+        "tags": [
+          "Reports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": false,
+            "name": "branchId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv",
+                "xlsx"
               ],
               "default": "json"
             },
@@ -4297,6 +4797,765 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "summary": "My notifications",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 25
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "unread",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "summary": "Number of unread notifications",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "post": {
+        "summary": "Mark a notification as read",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "post": {
+        "summary": "Mark all my notifications as read",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/templates/products.csv": {
+      "get": {
+        "summary": "Download the product import template",
+        "description": "Requires permission `imports:read`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/uploads": {
+      "post": {
+        "summary": "Upload a file (CSV/XLSX product import; PDF/JPG/PNG documents). Checked by content, scanned, de-duplicated by SHA-256",
+        "description": "Requires permission `imports:manage`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "description": "PRODUCT_IMPORT | SUPPLIER_INVOICE | EXISTING_OFFICIAL_RECEIPT | EXTERNAL_DOCUMENT"
+                  }
+                },
+                "required": [
+                  "file",
+                  "purpose"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports": {
+      "get": {
+        "summary": "Import history",
+        "description": "Requires permission `imports:read`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 25
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{id}": {
+      "get": {
+        "summary": "Import detail",
+        "description": "Requires permission `imports:read`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{id}/rows": {
+      "get": {
+        "summary": "Parsed rows with row-level errors",
+        "description": "Requires permission `imports:read`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 25
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "invalidOnly",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{id}/commit": {
+      "post": {
+        "summary": "Import the valid rows of a product import",
+        "description": "Requires permission `products:manage`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allowPartial": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{id}/review": {
+      "post": {
+        "summary": "Record the human review of an uploaded document (totals recalculated; never creates a tax receipt)",
+        "description": "Requires permission `imports:manage`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentNumber": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "issueDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "sellerName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "sellerTaxId": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "buyerName": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "buyerTaxId": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$",
+                    "default": "EGP"
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "quantity": {
+                          "type": "string",
+                          "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                        },
+                        "unitPrice": {
+                          "type": "string",
+                          "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                        },
+                        "discount": {
+                          "type": "string",
+                          "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                        },
+                        "taxAmount": {
+                          "type": "string",
+                          "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                        }
+                      },
+                      "required": [
+                        "description",
+                        "quantity",
+                        "unitPrice"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 300
+                  },
+                  "statedTotals": {
+                    "type": "object",
+                    "properties": {
+                      "net": {
+                        "type": "string",
+                        "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                      },
+                      "tax": {
+                        "type": "string",
+                        "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                      },
+                      "total": {
+                        "type": "string",
+                        "pattern": "^-?\\d{1,15}(\\.\\d{1,10})?$"
+                      }
+                    },
+                    "required": [
+                      "total"
+                    ]
+                  },
+                  "acceptDifferences": {
+                    "type": "boolean"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "documentNumber",
+                  "issueDate",
+                  "sellerName",
+                  "lines",
+                  "statedTotals"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{id}/retry": {
+      "post": {
+        "summary": "Retry a failed import",
+        "description": "Requires permission `imports:manage`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/{id}/reject": {
+      "post": {
+        "summary": "Discard an import",
+        "description": "Requires permission `imports:manage`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/imports/uploads/{id}/file": {
+      "get": {
+        "summary": "Download the original uploaded file",
+        "description": "Requires permission `imports:read`.",
+        "tags": [
+          "Imports"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
           }
         ],
         "responses": {

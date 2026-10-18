@@ -1,8 +1,10 @@
+import ExcelJS from 'exceljs';
 import type { PipelineStage } from 'mongoose';
 import { dec, Decimal } from '../../common/money/decimal.js';
 import { branchFilter, requireTenant, type RequestContext } from '../../common/security/context.js';
 import { EtaSubmissionModel } from '../eta/eta-submission.model.js';
 import { PaymentModel } from '../payments/payment.model.js';
+import { CashierShiftModel } from '../pos/cashier-shift.model.js';
 import { ReceiptModel } from '../receipts/receipt.model.js';
 
 export interface ReportFilter {
@@ -158,3 +160,86 @@ export function toCsv(rows: Array<Record<string, unknown>>): string {
   return '﻿' + [headers.join(','), ...rows.map((r) => headers.map((h) => esc(r[h])).join(','))].join('\r\n');
 }
 
+
+/** Tax base and tax per tax type / sub-type / rate; returns are subtracted. */
+export async function taxSummary(ctx: RequestContext, f: ReportFilter) {
+  const rows = await ReceiptModel.aggregate([
+    { $match: baseMatch(ctx, f) },
+    { $unwind: '$lines' },
+    { $unwind: '$lines.taxableItems' },
+    { $group: { _id: { kind: '$kind', taxType: '$lines.taxableItems.taxType', subType: '$lines.taxableItems.subType', rate: '$lines.taxableItems.rate' }, base: { $sum: '$lines.netSale' }, tax: { $sum: '$lines.taxableItems.amount' }, lines: { $sum: 1 } } },
+  ]);
+  const m = new Map<string, { taxType: string; subType: string; rate: string; base: Decimal; tax: Decimal; returnedBase: Decimal; returnedTax: Decimal }>();
+  for (const r of rows) {
+    const key = `${r._id.taxType}|${r._id.subType}|${r._id.rate}`;
+    const e = m.get(key) ?? { taxType: r._id.taxType, subType: r._id.subType, rate: r._id.rate, base: new Decimal(0), tax: new Decimal(0), returnedBase: new Decimal(0), returnedTax: new Decimal(0) };
+    if (r._id.kind === 'RETURN') {
+      e.returnedBase = e.returnedBase.plus(str(r.base));
+      e.returnedTax = e.returnedTax.plus(str(r.tax));
+    } else {
+      e.base = e.base.plus(str(r.base));
+      e.tax = e.tax.plus(str(r.tax));
+    }
+    m.set(key, e);
+  }
+  return [...m.values()].sort((a, b) => `${a.taxType}${a.subType}`.localeCompare(`${b.taxType}${b.subType}`)).map((e) => ({
+    taxType: e.taxType, subType: e.subType, rate: e.rate, salesBase: e.base.toFixed(2), salesTax: e.tax.toFixed(2),
+    returnsBase: e.returnedBase.toFixed(2), returnsTax: e.returnedTax.toFixed(2), netBase: e.base.minus(e.returnedBase).toFixed(2), netTax: e.tax.minus(e.returnedTax).toFixed(2),
+  }));
+}
+
+/** Return receipts in the period with their refunds and ETA status. */
+export async function refundsReport(ctx: RequestContext, f: ReportFilter) {
+  const tenantId = requireTenant(ctx);
+  const receipts = await ReceiptModel.find({ ...baseMatch(ctx, f), kind: 'RETURN' }).select('receiptNumber dateTimeIssued totals.totalAmount eta.status originalReceiptId returnId paymentMethodCode').sort({ dateTimeIssued: 1 }).limit(50_000).lean();
+  const originals = await ReceiptModel.find({ tenantId, _id: { $in: receipts.map((r) => r.originalReceiptId).filter(Boolean) } }, { receiptNumber: 1 }).lean();
+  const originalNo = new Map(originals.map((o) => [String(o._id), o.receiptNumber]));
+  const payments = await PaymentModel.find({ tenantId, direction: 'OUT', receiptId: { $in: receipts.map((r) => r._id) } }, { receiptId: 1, method: 1, status: 1, amount: 1 }).lean();
+  const payBy = new Map(payments.map((p) => [String(p.receiptId), p]));
+  return receipts.map((r) => {
+    const p = payBy.get(String(r._id));
+    return {
+      returnReceipt: r.receiptNumber, issuedAt: r.dateTimeIssued, originalReceipt: originalNo.get(String(r.originalReceiptId)) ?? '',
+      refundAmount: money(r.totals.totalAmount), refundMethod: p?.method ?? '', refundStatus: p?.status ?? '', etaStatus: r.eta.status,
+    };
+  });
+}
+
+/** Receipt processing at ETA: status counts and every receipt that needs attention, with its last error. */
+export async function etaProcessingReport(ctx: RequestContext, f: ReportFilter) {
+  const rows = await ReceiptModel.find({ ...baseMatch(ctx, f), 'eta.status': { $in: ['REJECTED', 'INVALID', 'FAILED', 'UNKNOWN', 'QUEUED', 'NOT_SUBMITTED', 'SUPERSEDED'] } })
+    .select('receiptNumber kind dateTimeIssued eta.status eta.statusChangedAt eta.attempts eta.lastError uuid').sort({ dateTimeIssued: 1 }).limit(50_000).lean();
+  return rows.map((r) => ({
+    receiptNumber: r.receiptNumber, kind: r.kind, issuedAt: r.dateTimeIssued, etaStatus: r.eta.status, since: r.eta.statusChangedAt, attempts: r.eta.attempts ?? 0,
+    errorCode: r.eta.lastError?.code ?? '', errorMessage: r.eta.lastError?.message ?? '', uuid: r.uuid,
+  }));
+}
+
+/** Closed shifts in the period with opening, expected and counted cash and the variance. */
+export async function shiftReconciliation(ctx: RequestContext, f: ReportFilter) {
+  const rows = await CashierShiftModel.aggregate([
+    { $match: { tenantId: requireTenant(ctx), ...branchFilter(ctx, f.branchId), status: 'CLOSED', closedAt: { $gte: f.from, $lt: f.to } } },
+    { $sort: { closedAt: 1 } },
+    { $limit: 50_000 },
+    { $lookup: { from: 'users', localField: 'cashierId', foreignField: '_id', as: 'u' } },
+    { $lookup: { from: 'posDevices', localField: 'deviceId', foreignField: '_id', as: 'd' } },
+  ]);
+  return rows.map((s) => ({
+    openedAt: s.openedAt, closedAt: s.closedAt, cashier: s.u[0]?.name ?? '', device: s.d[0]?.name ?? '',
+    openingCash: money(s.openingCash), expectedCash: money(s.expectedCash), countedCash: money(s.countedCash), variance: money(s.variance), notes: s.closingNotes ?? '',
+  }));
+}
+
+export async function toXlsx(rows: Array<Record<string, unknown>>, sheet: string): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.created = new Date();
+  const ws = wb.addWorksheet(sheet.slice(0, 31));
+  const headers = rows[0] ? Object.keys(rows[0]) : [];
+  ws.columns = headers.map((h) => ({ header: h, key: h, width: Math.min(40, Math.max(12, h.length + 2)) }));
+  for (const r of rows) {
+    // Text cells: monetary values stay exact decimal strings; leading "=" etc. are never interpreted as formulas.
+    ws.addRow(Object.fromEntries(headers.map((h) => [h, r[h] instanceof Date ? (r[h] as Date).toISOString() : r[h] === null || r[h] === undefined ? '' : String(r[h])])));
+  }
+  ws.getRow(1).font = { bold: true };
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}

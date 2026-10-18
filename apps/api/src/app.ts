@@ -25,6 +25,8 @@ import { salesRouter } from './modules/sales/sales.routes.js';
 import { taxRouter } from './modules/tax/tax.routes.js';
 import { tenantRouter } from './modules/tenants/tenant.routes.js';
 import { userRouter } from './modules/users/user.routes.js';
+import { notificationRouter } from './modules/notifications/notification.routes.js';
+import { importRouter } from './modules/imports/import.routes.js';
 
 export function createApp(): Express {
   const cfg = env();
@@ -56,7 +58,7 @@ export function createApp(): Express {
   });
 
   const v1 = Router();
-  for (const r of [authRouter, tenantRouter, branchRouter, userRouter, posDeviceRouter, taxRouter, productRouter, customerRouter, salesRouter, receiptRouter, returnRouter, reportRouter, etaRouter, auditRouter]) {
+  for (const r of [authRouter, tenantRouter, branchRouter, userRouter, posDeviceRouter, taxRouter, productRouter, customerRouter, salesRouter, receiptRouter, returnRouter, reportRouter, etaRouter, auditRouter, notificationRouter, importRouter]) {
     v1.use(r());
   }
   app.use('/api/v1', v1);

@@ -5,6 +5,7 @@ import { AppError } from '../../common/errors/app-error.js';
 import { logger } from '../../common/logging/logger.js';
 import { enqueueSafely } from '../../jobs/queue.js';
 import { recordAudit } from '../audit/audit.service.js';
+import { notify } from '../notifications/notification.service.js';
 import { PosDeviceModel } from '../pos/pos-device.model.js';
 import { assertTransition, mapOfficialDocumentStatus, type EtaStatus } from '../receipts/eta-status.js';
 import { ReceiptModel } from '../receipts/receipt.model.js';
@@ -68,6 +69,16 @@ export class EtaIntegrationService {
     if (res.modifiedCount !== ids.length) logger.warn({ from, to, expected: ids.length, modified: res.modifiedCount }, 'ETA status move affected fewer receipts than expected');
     if (['REJECTED', 'INVALID', 'FAILED'].includes(to)) {
       await recordAudit({ tenantId, action: `eta.receipt_${to.toLowerCase()}`, outcome: 'failure', entityType: 'Receipt', summary: `${ids.length} receipt(s): ${reason}`.slice(0, 500), changes: { receiptIds: ids.map(String) } });
+      const sample = await ReceiptModel.find({ tenantId, _id: { $in: ids } }, { receiptNumber: 1 }).limit(5).lean();
+      const numbers = sample.map((r) => r.receiptNumber).join(', ') + (ids.length > 5 ? ` (+${ids.length - 5})` : '');
+      const label = { REJECTED: ['rejected by', 'رفضت'], INVALID: ['marked invalid by', 'اعتبرت غير صالحة لدى'], FAILED: ['could not be sent to', 'تعذر إرسالها إلى'] }[to as 'REJECTED' | 'INVALID' | 'FAILED'];
+      await notify({
+        tenantId, kind: 'ETA_RECEIPT_PROBLEM', severity: to === 'FAILED' ? 'critical' : 'warning', permission: 'receipts:submit',
+        title: { en: `${ids.length} receipt(s) ${label[0]} the Tax Authority`, ar: `${ids.length} إيصال ${label[1]} مصلحة الضرائب` },
+        body: { en: `Receipts: ${numbers}. Reason: ${reason}`.slice(0, 500), ar: `الإيصالات: ${numbers}. السبب: ${reason}`.slice(0, 500) },
+        link: ids.length === 1 ? `/receipts/${ids[0]}` : `/receipts?etaStatus=${to}`, entityType: 'Receipt', entityId: String(ids[0]),
+        dedupeKey: `eta:${to}:${sha256Hex(ids.map(String).sort().join(','))}`,
+      });
     }
     return res.modifiedCount;
   }
@@ -142,7 +153,7 @@ export class EtaIntegrationService {
 
     const now = this.now();
     const queued = await ReceiptModel.find({ tenantId, deviceId, 'eta.status': 'QUEUED' })
-      .select('+etaDocumentEnc').sort({ chainSeq: 1 }).limit(MAX_BATCH_RECEIPTS).lean();
+      .select('+etaDocumentEnc').sort({ chainSeq: 1, correctionSeq: 1 }).limit(MAX_BATCH_RECEIPTS).lean();
     if (queued.length === 0) return { outcome: 'NOTHING_TO_DO' };
     if (queued[0]!.eta.nextAttemptAt && queued[0]!.eta.nextAttemptAt > now) return { outcome: 'RETRY_LATER', reason: 'BACKOFF' };
 

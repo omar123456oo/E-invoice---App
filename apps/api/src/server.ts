@@ -1,5 +1,5 @@
 import { createApp } from './app.js';
-import { configureEta } from './bootstrap.js';
+import { configureEta, configureMailer } from './bootstrap.js';
 import { env } from './config/env.js';
 import { connectMongo, disconnectMongo } from './common/db/mongo.js';
 import { logger } from './common/logging/logger.js';
@@ -11,6 +11,7 @@ async function main(): Promise<void> {
   const cfg = env();
   await connectMongo(cfg.MONGODB_URI);
   configureEta();
+  configureMailer();
   if (cfg.REDIS_URL) setJobQueue(new BullJobQueue(cfg.REDIS_URL));
   else {
     logger.warn('REDIS_URL not set: running the ETA sweeper in-process (development mode)');

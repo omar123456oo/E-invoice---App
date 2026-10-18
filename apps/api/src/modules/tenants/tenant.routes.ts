@@ -37,6 +37,7 @@ const UpdateCompanyBody = z.object({
       returnApprovalAmount: decimalString.optional(),
       returnApprovalAfterDays: z.number().int().min(0).max(540).optional(),
       maxCashierDiscountPercent: decimalString.optional(),
+      emailAlerts: z.boolean().optional(),
     })
     .optional(),
   eta: z

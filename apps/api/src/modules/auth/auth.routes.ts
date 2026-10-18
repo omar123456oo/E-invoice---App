@@ -95,6 +95,11 @@ export function authRouter(): Router {
       body: z.object({ code: z.string().regex(/^\d{6}$/) }),
       handler: async ({ ctx, body }) => auth.confirmMfaEnrollment(ctx, body.code),
     }),
+    route({
+      method: 'post', path: '/mfa/disable', tag: 'Auth', summary: 'Turn off TOTP (requires password and a current code)',
+      body: z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\d{6}$/) }),
+      handler: async ({ ctx, body }) => auth.disableMfa(ctx, body.password, body.code),
+    }),
   ]);
   return router;
 }

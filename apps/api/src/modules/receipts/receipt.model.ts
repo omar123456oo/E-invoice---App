@@ -79,6 +79,8 @@ const EtaStateSchema = new Schema(
       details: { type: Schema.Types.Mixed, default: null },
     },
     supersededBy: { type: Schema.Types.ObjectId, ref: 'Receipt', default: null },
+    // Set once an alert was raised that the 24-hour submission window is running out.
+    windowAlertedAt: { type: Date, default: null },
     history: {
       type: [{ _id: false, at: Date, from: String, to: String, reason: String }],
       default: [],
@@ -107,6 +109,10 @@ const ReceiptSchema = new Schema(
     previousUUID: { type: String, default: '' },
     referenceUUID: { type: String, default: null },
     referenceOldUUID: { type: String, default: null },
+    // 0 for an original receipt; n for the n-th correction (same chain position, new UUID, referenceOldUUID set).
+    correctionSeq: { type: Number, default: 0 },
+    correctsReceiptId: { type: Schema.Types.ObjectId, ref: 'Receipt', default: null },
+    correctionReason: { type: String, default: null, maxlength: 500 },
     originalReceiptId: { type: Schema.Types.ObjectId, ref: 'Receipt', default: null },
     dateTimeIssued: { type: Date, required: true },
     currency: { type: String, required: true },
@@ -141,15 +147,15 @@ const ReceiptSchema = new Schema(
 );
 
 ReceiptSchema.index({ tenantId: 1, uuid: 1 }, { unique: true });
-ReceiptSchema.index({ tenantId: 1, branchId: 1, receiptNumber: 1 }, { unique: true });
-ReceiptSchema.index({ tenantId: 1, deviceId: 1, chainSeq: 1 }, { unique: true });
+ReceiptSchema.index({ tenantId: 1, branchId: 1, receiptNumber: 1, correctionSeq: 1 }, { unique: true });
+ReceiptSchema.index({ tenantId: 1, deviceId: 1, chainSeq: 1, correctionSeq: 1 }, { unique: true });
 ReceiptSchema.index({ tenantId: 1, branchId: 1, dateTimeIssued: -1 });
 ReceiptSchema.index({ tenantId: 1, 'eta.status': 1, deviceId: 1, chainSeq: 1 });
 ReceiptSchema.index({ tenantId: 1, 'eta.submissionUuid': 1 }, { partialFilterExpression: { 'eta.submissionUuid': { $type: 'string' } } });
 ReceiptSchema.index({ tenantId: 1, originalReceiptId: 1 });
 tenantScoped(ReceiptSchema);
 
-const IMMUTABLE_PATHS = ['uuid', 'previousUUID', 'referenceUUID', 'receiptNumber', 'chainSeq', 'dateTimeIssued', 'lines', 'totals', 'seller', 'buyer', 'etaDocumentEnc', 'kind', 'currency'];
+const IMMUTABLE_PATHS = ['correctionSeq', 'referenceOldUUID', 'uuid', 'previousUUID', 'referenceUUID', 'receiptNumber', 'chainSeq', 'dateTimeIssued', 'lines', 'totals', 'seller', 'buyer', 'etaDocumentEnc', 'kind', 'currency'];
 
 /** Guards against code paths that try to rewrite issued data through update operators. */
 for (const op of ['updateOne', 'updateMany', 'findOneAndUpdate'] as const) {

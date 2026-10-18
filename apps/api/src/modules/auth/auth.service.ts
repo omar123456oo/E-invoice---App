@@ -224,6 +224,16 @@ export async function confirmMfaEnrollment(ctx: RequestContext, code: string): P
   await recordAudit({ ...fromContext(ctx), action: 'auth.mfa_enabled', entityType: 'User', entityId: ctx.userId });
 }
 
+/** Turning MFA off requires the current password and a valid code. */
+export async function disableMfa(ctx: RequestContext, password: string, code: string): Promise<void> {
+  const user = await UserModel.findOne({ _id: ctx.userId }).select('+passwordHash +mfa.secretEnc').setOptions({ skipTenantGuard: true });
+  if (!user?.mfa?.enabled || !user.mfa.secretEnc) throw AppError.businessRule('Multi-factor authentication is not enabled', 'MFA_NOT_ENABLED');
+  if (!(await verifyPassword(user.passwordHash, password))) throw AppError.businessRule('Current password is incorrect', 'WRONG_PASSWORD');
+  if (!authenticator.check(code, decryptSecret(user.mfa.secretEnc))) throw AppError.businessRule('Invalid verification code', 'MFA_INVALID');
+  await UserModel.updateOne({ _id: ctx.userId }, { $set: { 'mfa.enabled': false, 'mfa.secretEnc': null } }).setOptions({ skipTenantGuard: true });
+  await recordAudit({ ...fromContext(ctx), action: 'auth.mfa_disabled', entityType: 'User', entityId: ctx.userId });
+}
+
 export async function me(ctx: RequestContext) {
   const user = await UserModel.findOne({ _id: ctx.userId }).setOptions({ skipTenantGuard: true });
   if (!user) throw AppError.notFound('User');

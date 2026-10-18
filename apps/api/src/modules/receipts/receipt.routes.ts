@@ -11,6 +11,7 @@ import { PaymentModel } from '../payments/payment.model.js';
 import { enqueueSafely } from '../../jobs/queue.js';
 import { ETA_STATUSES, type EtaStatus } from './eta-status.js';
 import { receiptView } from './receipt-view.js';
+import { correctReceipt } from './correction.service.js';
 import { ReceiptModel } from './receipt.model.js';
 
 async function loadReceipt(ctx: RequestContext, id: string) {
@@ -81,6 +82,19 @@ export function receiptRouter(): Router {
         await recordAudit({ ...fromContext(ctx), branchId: r.branchId, action: 'receipt.queued_for_eta', entityType: 'Receipt', entityId: r._id, summary: body.reason, changes: { from: status } });
         return receiptView((await ReceiptModel.findOne({ _id: r._id, tenantId: r.tenantId }))!);
       },
+    }),
+    route({
+      method: 'post', path: '/:id/correct', tag: 'Receipts', status: 201, permission: 'receipts:submit',
+      summary: 'Issue a corrected receipt (new UUID, referenceOldUUID) for a rejected, invalid or failed receipt',
+      description: 'Only identification data can be corrected: item codes, unit types, descriptions and buyer details. Allowed within 96 hours of issuance.',
+      params: ObjectIdParam,
+      body: z.object({
+        reason: z.string().min(3).max(500),
+        useCurrentProductCodes: z.boolean().optional(),
+        lines: z.array(z.object({ lineNo: z.number().int().min(1), itemType: z.enum(['GS1', 'EGS']).optional(), itemCode: z.string().min(1).max(100).optional(), unitType: z.string().min(1).max(30).optional(), description: z.string().min(1).max(500).optional() })).max(300).optional(),
+        buyer: z.object({ type: z.enum(['P', 'B', 'F']), name: z.string().min(1).max(100).optional(), identity: z.string().min(1).max(40).optional(), mobileNumber: z.string().max(30).optional() }).optional(),
+      }),
+      handler: async ({ ctx, params, body }) => receiptView(await correctReceipt(ctx, params.id, body)),
     }),
     route({
       method: 'post', path: '/:id/reconcile', tag: 'Receipts', permission: 'receipts:submit', summary: 'Ask ETA for the status of a receipt whose submission outcome is unknown', params: ObjectIdParam,

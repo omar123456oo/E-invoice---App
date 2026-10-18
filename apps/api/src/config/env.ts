@@ -30,6 +30,12 @@ const EnvSchema = z
     ETA_TRANSPORT: z.enum(['http', 'simulated']).default('http'),
     ETA_RECEIPT_QR_TEMPLATE: z.string().optional().default(''),
     STORAGE_DIR: z.string().default('./storage'),
+    // smtp(s)://user:pass@host:port — required in production for password reset and alert emails.
+    SMTP_URL: z.string().optional().default(''),
+    MAIL_FROM: z.string().optional().default('E-Receipts <no-reply@localhost>'),
+    // Optional ClamAV daemon for upload scanning, host:port (e.g. clamav:3310).
+    CLAMAV_ADDRESS: z.string().optional().default(''),
+    MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(50).default(10),
   })
   .superRefine((env, ctx) => {
     if (env.ETA_ENVIRONMENT === 'production' && env.ETA_SIGNING_MODE === 'none') {
@@ -41,6 +47,9 @@ const EnvSchema = z
     }
     if (env.NODE_ENV === 'production' && env.ETA_TRANSPORT === 'simulated') {
       ctx.addIssue({ code: 'custom', path: ['ETA_TRANSPORT'], message: 'The simulated ETA cannot be used in production' });
+    }
+    if (env.NODE_ENV === 'production' && !env.SMTP_URL) {
+      ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL is required in production (password reset and alerts)' });
     }
     if (env.ETA_ENVIRONMENT === 'production' && env.NODE_ENV !== 'production') {
       ctx.addIssue({

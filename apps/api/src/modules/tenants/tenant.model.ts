@@ -36,6 +36,8 @@ const TenantSchema = new Schema(
       returnApprovalAmount: { ...decimalField(true), default: () => '5000' },
       returnApprovalAfterDays: { type: Number, default: 30 },
       maxCashierDiscountPercent: { ...decimalField(true), default: () => '10' },
+      // Send warning/critical alerts by email in addition to in-app notifications.
+      emailAlerts: { type: Boolean, default: false },
     },
     eta: {
       onboardingStatus: { type: String, enum: ETA_ONBOARDING_STATUSES, default: 'NOT_STARTED' },

@@ -86,6 +86,8 @@ describe('authentication', () => {
     expect(noCode.body.error.code).toBe('MFA_REQUIRED');
     const withCode = await request(t.app).post('/api/v1/auth/login').send({ email: s.users.FINANCE_MANAGER!.email, password: PASSWORD, totp: authenticator.generate(setup.body.secret) });
     expect(withCode.status).toBe(200);
+    const t2 = withCode.body.accessToken as string;
+    expect((await request(t.app).post('/api/v1/auth/mfa/disable').set(bearer(t2)).send({ password: 'wrong-password', code: authenticator.generate(setup.body.secret) })).status).toBe(422);
     const stored = await UserModel.findOne({ _id: s.users.FINANCE_MANAGER!.id }).select('+mfa.secretEnc').setOptions({ skipTenantGuard: true }).lean();
     expect(stored!.mfa!.secretEnc).not.toContain(setup.body.secret);
   });

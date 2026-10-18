@@ -4,6 +4,7 @@ export interface JobPayloads {
   'eta.submit-device': { tenantId: string; deviceId: string };
   'eta.poll-submission': { tenantId: string; submissionUuid: string };
   'eta.reconcile-receipt': { tenantId: string; receiptId: string };
+  'import.process': { tenantId: string; jobId: string };
 }
 export type JobName = keyof JobPayloads;
 

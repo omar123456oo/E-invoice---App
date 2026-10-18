@@ -4,6 +4,14 @@ import { EtaHttpClient } from './modules/eta/eta-http-client.js';
 import { EtaIntegrationService, setEtaService } from './modules/eta/eta-integration.service.js';
 import { ExternalSignerNotConfigured, NoSigner } from './modules/eta/signer.js';
 import { SimulatedEtaApi } from './modules/eta/simulated-eta-api.js';
+import { setMailer } from './modules/notifications/mailer.js';
+import { SmtpMailer } from './modules/notifications/smtp-mailer.js';
+
+/** Selects the mailer: SMTP when configured, otherwise the in-memory development mailer. */
+export function configureMailer(): void {
+  const cfg = env();
+  if (cfg.SMTP_URL) setMailer(new SmtpMailer(cfg.SMTP_URL, cfg.MAIL_FROM));
+}
 
 /** Wires the ETA adapter according to configuration. */
 export function configureEta(): EtaIntegrationService {

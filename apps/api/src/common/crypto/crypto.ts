@@ -6,6 +6,11 @@ export function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
+/** SHA-256 hex digest of raw bytes (file contents). */
+export function sha256Bytes(data: Buffer): string {
+  return createHash('sha256').update(data).digest('hex');
+}
+
 /** Cryptographically random URL-safe token. */
 export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');

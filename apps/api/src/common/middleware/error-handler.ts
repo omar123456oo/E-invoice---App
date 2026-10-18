@@ -26,6 +26,9 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     appError = AppError.conflict('A record with the same unique value already exists', 'DUPLICATE');
   } else if (err instanceof SyntaxError && 'body' in err) {
     appError = AppError.badRequest('Malformed JSON body', [], 'MALFORMED_JSON');
+  } else if (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'MulterError') {
+    const code = (err as { code?: string }).code;
+    appError = code === 'LIMIT_FILE_SIZE' ? new AppError(413, 'PAYLOAD_TOO_LARGE', 'The file is too large') : AppError.badRequest('Invalid upload', [], code ?? 'INVALID_UPLOAD');
   } else if (isPayloadTooLarge(err)) {
     appError = new AppError(413, 'PAYLOAD_TOO_LARGE', 'Request body is too large');
   } else {

@@ -35,6 +35,8 @@ export const PERMISSIONS = [
   'payments:read',
   'payments:manage',
   'reports:read',
+  'imports:read',
+  'imports:manage',
   'audit:read',
 ] as const;
 
@@ -67,6 +69,7 @@ const READ_ONLY: Permission[] = [
   'returns:read',
   'payments:read',
   'reports:read',
+  'imports:read',
   'audit:read',
 ];
 
@@ -86,6 +89,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'returns:create',
     'returns:approve',
     'payments:manage',
+    'imports:manage',
     'users:read',
   ],
   CASHIER: [
@@ -101,7 +105,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'returns:create',
     'returns:read',
   ],
-  ACCOUNTANT: [...READ_ONLY, 'customers:read'],
+  ACCOUNTANT: [...READ_ONLY, 'customers:read', 'imports:manage'],
   // Auditors read everything except consumer personal data.
   AUDITOR: READ_ONLY,
   // Support sees integration health and technical status only: no customers, no audit trail, no reports.

@@ -1,4 +1,4 @@
-import type { Request, Response, Router } from 'express';
+import type { NextFunction, Request, RequestHandler, Response, Router } from 'express';
 import { z, type ZodType } from 'zod';
 import { ErrorResponse, registry } from '../../openapi/registry.js';
 import { AppError } from '../errors/app-error.js';
@@ -31,6 +31,10 @@ export interface RouteDef<B = unknown, Q = unknown, P = unknown> {
   response?: ZodType;
   status?: number;
   description?: string;
+  /** Extra middleware run after authentication and the permission check (e.g. multipart parsing). */
+  middlewares?: RequestHandler[];
+  /** Documents a multipart/form-data body in OpenAPI. */
+  multipart?: Record<string, { type: 'string' | 'binary'; description?: string }>;
   handler: (input: HandlerInput<B, Q, P>) => Promise<unknown>;
 }
 
@@ -59,12 +63,13 @@ export function mount(router: Router, basePath: string, defs: RouteDef<any, any,
   for (const def of defs) {
     const fullPath = `${basePath}${def.path}`;
     const requiresAuth = def.auth !== false;
-    const middlewares = requiresAuth ? [authenticate] : [];
+    const checkPermission = (req: Request, _res: Response, next: NextFunction) => {
+      if (requiresAuth && def.permission && !req.ctx?.permissions.has(def.permission)) throw AppError.forbidden();
+      next();
+    };
+    const middlewares: RequestHandler[] = [...(requiresAuth ? [authenticate as RequestHandler] : []), checkPermission, ...(def.middlewares ?? [])];
 
     router[def.method](fullPath, ...middlewares, async (req: Request, res: Response) => {
-      if (requiresAuth && def.permission && !req.ctx?.permissions.has(def.permission)) {
-        throw AppError.forbidden();
-      }
       const body = parse(def.body, req.body, 'body');
       const query = parse(def.query, req.query, 'query');
       const params = parse(def.params, req.params, 'params');
@@ -89,6 +94,9 @@ export function mount(router: Router, basePath: string, defs: RouteDef<any, any,
         ...(def.params ? { params: def.params as never } : {}),
         ...(def.query ? { query: def.query as never } : {}),
         ...(def.body ? { body: { content: { 'application/json': { schema: def.body } } } } : {}),
+        ...(def.multipart
+          ? { body: { content: { 'multipart/form-data': { schema: z.object(Object.fromEntries(Object.entries(def.multipart).map(([k, v]) => [k, z.string().openapi({ format: v.type === 'binary' ? 'binary' : undefined, description: v.description })]))) } } } }
+          : {}),
       },
       responses: {
         [status]: def.response

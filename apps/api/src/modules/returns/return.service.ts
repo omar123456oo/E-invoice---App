@@ -12,6 +12,7 @@ import { parseEtaJson } from '../eta/serializer.js';
 import { PaymentModel } from '../payments/payment.model.js';
 import { looksLikeCardNumber } from '../payments/payment-rules.js';
 import { CashierShiftModel } from '../pos/cashier-shift.model.js';
+import { expectedCash } from '../pos/shift.service.js';
 import { PosDeviceModel } from '../pos/pos-device.model.js';
 import { issueOnDevice, type IssueLine } from '../receipts/issuance.service.js';
 import { ReceiptModel } from '../receipts/receipt.model.js';
@@ -210,6 +211,12 @@ export async function completeReturn(ctx: RequestContext, returnId: string, devi
     if (BLOCKING_ORIGINAL_STATUSES.has(original.eta.status)) throw AppError.businessRule(`The original receipt is ${original.eta.status} at ETA`, 'ORIGINAL_NOT_RETURNABLE');
     const reqLines = ret.lines.map((l) => ({ lineNo: l.lineNo, quantity: l.quantity.toString() }));
     const { lines, totals } = computeReturnLines(original as OriginalReceipt, reqLines);
+    if (ret.refundMethod === 'CASH') {
+      const drawer = await expectedCash(tenantId, shift._id, shift.openingCash.toString());
+      if (dec(drawer.expected).lt(totals.totalAmount)) {
+        throw AppError.businessRule(`Not enough cash in the drawer for this refund (${drawer.expected} available)`, 'INSUFFICIENT_DRAWER_CASH');
+      }
+    }
 
     const receipt = await issueOnDevice({
       tenantId, branchId: branch._id, deviceId: device._id, transactionId: original.transactionId, returnId: ret._id, cashierId: ctx.userId,
