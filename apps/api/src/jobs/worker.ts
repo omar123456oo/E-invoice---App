@@ -4,11 +4,10 @@ import { configureEta, configureMailer } from '../bootstrap.js';
 import { env } from '../config/env.js';
 import { connectMongo, disconnectMongo } from '../common/db/mongo.js';
 import { logger } from '../common/logging/logger.js';
-import { getEtaService } from '../modules/eta/eta-integration.service.js';
 import { BullJobQueue, QUEUE_NAME, redisConnection } from './bull.js';
-import { setJobQueue, type JobName, type JobPayloads } from './queue.js';
+import { setJobQueue, type JobName } from './queue.js';
+import { runJob } from './handlers.js';
 import { sweepAll } from './sweeper.js';
-import { processImportJob } from '../modules/imports/import.service.js';
 import { notify } from '../modules/notifications/notification.service.js';
 
 /**
@@ -17,29 +16,11 @@ import { notify } from '../modules/notifications/notification.service.js';
  * Failed jobs stay in the BullMQ failed set (dead-letter) for 14 days.
  */
 async function handle(job: Job): Promise<unknown> {
-  const svc = getEtaService();
-  switch (job.name as JobName) {
-    case 'eta.submit-device': {
-      const d = job.data as JobPayloads['eta.submit-device'];
-      return svc.submitDevice(new Types.ObjectId(d.tenantId), new Types.ObjectId(d.deviceId));
-    }
-    case 'eta.poll-submission': {
-      const d = job.data as JobPayloads['eta.poll-submission'];
-      const res = await svc.pollSubmission(new Types.ObjectId(d.tenantId), d.submissionUuid);
-      if (res.pending > 0) throw new Error(`${res.pending} receipt(s) still pending validation`); // retried with backoff
-      return res;
-    }
-    case 'eta.reconcile-receipt': {
-      const d = job.data as JobPayloads['eta.reconcile-receipt'];
-      return svc.reconcileReceipt(new Types.ObjectId(d.tenantId), new Types.ObjectId(d.receiptId));
-    }
-    case 'import.process': {
-      const d = job.data as JobPayloads['import.process'];
-      return processImportJob(new Types.ObjectId(d.tenantId), new Types.ObjectId(d.jobId));
-    }
-    default:
-      throw new Error(`Unknown job ${job.name}`);
+  const res = await runJob(job.name as JobName, job.data as never);
+  if (job.name === 'eta.poll-submission' && (res as { pending?: number }).pending) {
+    throw new Error(`${(res as { pending: number }).pending} receipt(s) still pending validation`); // retried with backoff
   }
+  return res;
 }
 
 async function main(): Promise<void> {

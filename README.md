@@ -37,7 +37,7 @@ Demo users (password `ChangeMe-Dev-Only-123`): `owner@demo.local`,
 `cashier@demo.local`, `finance@demo.local`, `platform@demo.local`. Demo tax rates
 are placeholders, not verified rates.
 
-For a persistent setup with MongoDB and Redis see [docs/deployment.md](docs/deployment.md).
+For a persistent setup with MongoDB and Redis see [docs/deployment.md](docs/deployment.md). To deploy on Vercel see [docs/deployment-vercel.md](docs/deployment-vercel.md).
 
 ## Repository layout
 

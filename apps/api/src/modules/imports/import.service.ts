@@ -17,6 +17,7 @@ import { detectKind, MIME, type AllowedKind } from './file-check.js';
 import { DocumentUploadModel, ImportJobModel, ImportRowModel, type UploadPurpose } from './import.model.js';
 import { ClamdScanner, NoScanner, type MalwareScanner } from './scanner.js';
 import { LocalFileStorage, type FileStorage } from './storage.js';
+import { GridFsStorage } from './gridfs-storage.js';
 
 export const MAX_IMPORT_ROWS = 5000;
 
@@ -34,7 +35,7 @@ function defaults(): Deps {
   const cfg = env();
   const [host, port] = cfg.CLAMAV_ADDRESS.split(':');
   return {
-    storage: new LocalFileStorage(cfg.STORAGE_DIR),
+    storage: cfg.STORAGE_DRIVER === 'gridfs' ? new GridFsStorage() : new LocalFileStorage(cfg.STORAGE_DIR),
     scanner: host ? new ClamdScanner(host, Number(port ?? 3310)) : new NoScanner(),
     extractor: new NoExtractor(),
   };

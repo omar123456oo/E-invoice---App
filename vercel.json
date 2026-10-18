@@ -1,0 +1,26 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "api": {
+      "root": "apps/api",
+      "framework": "express",
+      "entrypoint": "dist/vercel.js",
+      "installCommand": "cd ../.. && MONGOMS_DISABLE_POSTINSTALL=1 SCARF_ANALYTICS=false npm ci",
+      "buildCommand": "npm run build"
+    },
+    "web": {
+      "root": "apps/web",
+      "framework": "angular",
+      "installCommand": "cd ../.. && MONGOMS_DISABLE_POSTINSTALL=1 SCARF_ANALYTICS=false npm ci",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist/web/browser",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "api" } },
+    { "source": "/health/(.*)", "destination": { "service": "api" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ],
+  "crons": [{ "path": "/api/v1/internal/cron/sweep", "schedule": "0 3 * * *" }]
+}

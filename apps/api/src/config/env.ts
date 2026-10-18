@@ -30,6 +30,10 @@ const EnvSchema = z
     ETA_TRANSPORT: z.enum(['http', 'simulated']).default('http'),
     ETA_RECEIPT_QR_TEMPLATE: z.string().optional().default(''),
     STORAGE_DIR: z.string().default('./storage'),
+    // local: files under STORAGE_DIR. gridfs: inside MongoDB (required on serverless hosts such as Vercel).
+    STORAGE_DRIVER: z.enum(['local', 'gridfs']).default('local'),
+    // Shared secret for the scheduled sweep endpoint (Vercel Cron sends it as a Bearer token).
+    CRON_SECRET: z.string().optional().default(''),
     // smtp(s)://user:pass@host:port — required in production for password reset and alert emails.
     SMTP_URL: z.string().optional().default(''),
     MAIL_FROM: z.string().optional().default('E-Receipts <no-reply@localhost>'),
@@ -47,6 +51,9 @@ const EnvSchema = z
     }
     if (env.NODE_ENV === 'production' && env.ETA_TRANSPORT === 'simulated') {
       ctx.addIssue({ code: 'custom', path: ['ETA_TRANSPORT'], message: 'The simulated ETA cannot be used in production' });
+    }
+    if (process.env.VERCEL && env.STORAGE_DRIVER === 'local') {
+      ctx.addIssue({ code: 'custom', path: ['STORAGE_DRIVER'], message: 'Local file storage is temporary on Vercel; use STORAGE_DRIVER=gridfs' });
     }
     if (env.NODE_ENV === 'production' && !env.SMTP_URL) {
       ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL is required in production (password reset and alerts)' });
@@ -72,7 +79,15 @@ export type Env = z.infer<typeof EnvSchema>;
 let cached: Env | undefined;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = EnvSchema.safeParse(source);
+  const input: NodeJS.ProcessEnv = { ...source };
+  // On Vercel: default the allowed origin to the production URL and keep uploads in MongoDB.
+  if (input.VERCEL) {
+    if (!input.CORS_ORIGINS && input.VERCEL_PROJECT_PRODUCTION_URL) input.CORS_ORIGINS = `https://${input.VERCEL_PROJECT_PRODUCTION_URL}`;
+    input.STORAGE_DRIVER ??= 'gridfs';
+    // Vercel Functions accept request bodies up to 4.5 MB.
+    input.MAX_UPLOAD_MB ??= '4';
+  }
+  const parsed = EnvSchema.safeParse(input);
   if (!parsed.success) {
     const details = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid environment configuration: ${details}`);

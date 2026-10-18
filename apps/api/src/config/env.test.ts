@@ -24,3 +24,10 @@ describe('environment validation', () => {
     expect(() => loadEnv({ ...base, DATA_ENCRYPTION_KEY: 'abc' })).toThrow();
   });
 });
+
+describe('Vercel defaults', () => {
+  it('uses GridFS, a 4 MB upload limit and the production URL as allowed origin', () => {
+    const e = loadEnv({ ...base, VERCEL: '1', VERCEL_PROJECT_PRODUCTION_URL: 'shop.vercel.app' });
+    expect(e).toMatchObject({ STORAGE_DRIVER: 'gridfs', MAX_UPLOAD_MB: 4, CORS_ORIGINS: ['https://shop.vercel.app'] });
+  });
+});

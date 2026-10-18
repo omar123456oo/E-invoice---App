@@ -1,5 +1,7 @@
 # Deployment
 
+For Vercel see [deployment-vercel.md](deployment-vercel.md).
+
 > The Docker artefacts below were written but could **not be executed** on the
 > development machine (Docker is not installed there). Treat them as unverified
 > until run in your environment.

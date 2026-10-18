@@ -5,7 +5,7 @@ self-assessment, not an audit.
 
 ## Authentication (ASVS V2, V3)
 
-- Passwords: argon2id (19 MiB, t=2, p=1), length 10–128, constant-time handling of unknown accounts.
+- Passwords: scrypt from Node's standard library with the OWASP profile N=2^15, r=8, p=3 (≈32 MiB), 16-byte salt, constant-time compare; parameters are stored per hash and weaker hashes are upgraded at the next login. (argon2id was replaced because its native addon is not reliably bundled on serverless hosts.) Length 10–128, constant-time handling of unknown accounts.
 - Lockout after 5 failures for 15 minutes; all attempts audited.
 - Optional TOTP MFA (RFC 6238); secrets AES-256-GCM encrypted at rest.
 - Access tokens: HS256 JWT, 15 minutes, issuer/audience checked, kept in browser memory only.

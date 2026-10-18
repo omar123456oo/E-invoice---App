@@ -10,7 +10,7 @@ import { permissionsFor, type Role } from '../../common/security/permissions.js'
 import { fromContext, recordAudit } from '../audit/audit.service.js';
 import { getMailer } from '../notifications/mailer.js';
 import { UserModel } from '../users/user.model.js';
-import { getDummyHash, hashPassword, verifyPassword } from './password.js';
+import { getDummyHash, hashPassword, needsRehash, verifyPassword } from './password.js';
 import { PasswordResetModel, SessionModel } from './session.model.js';
 
 const MAX_FAILED_LOGINS = 5;
@@ -80,7 +80,8 @@ export async function login(email: string, password: string, totp: string | unde
     }
   }
 
-  await UserModel.updateOne({ _id: user._id }, { $set: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() } }).setOptions({ skipTenantGuard: true });
+  const rehash = needsRehash(user.passwordHash) ? { passwordHash: await hashPassword(password) } : {};
+  await UserModel.updateOne({ _id: user._id }, { $set: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(), ...rehash } }).setOptions({ skipTenantGuard: true });
   const pair = await createSession(user, client);
   await recordAudit({ ...auditBase, action: 'auth.login', summary: 'Signed in' });
   return { ...pair, user: user.toJSON() };

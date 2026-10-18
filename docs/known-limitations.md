@@ -19,6 +19,7 @@
 | KL-19 | Card payments are recorded from external terminal references; no payment-provider integration | Manual reference entry | Payment-provider adapter |
 | KL-21 | Server validation messages (e.g. row errors) are in English; UI labels are bilingual | Arabic users see some English messages | Translate error codes in the UI |
 | KL-22 | Upload storage is local disk; multiple API hosts need a shared volume or an object-storage implementation of `FileStorage` | Horizontal scaling | S3/Azure adapter |
+| KL-24 | On Vercel there is no worker: jobs run after the response, plus a cron sweep (daily on the Hobby plan) and a manual "run now" button | Receipts may wait for the next sweep if a background run fails | Use Pro cron every 10 min, or a server deployment with the worker |
 | KL-23 | Without ClamAV configured uploads are not malware-scanned (shown as "Not scanned") | Risk from uploaded files | Configure `CLAMAV_ADDRESS` in production |
 
 Resolved since the first release: receipt corrections (KL-03), 24-hour window

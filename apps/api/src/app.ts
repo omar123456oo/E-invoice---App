@@ -27,6 +27,7 @@ import { tenantRouter } from './modules/tenants/tenant.routes.js';
 import { userRouter } from './modules/users/user.routes.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { importRouter } from './modules/imports/import.routes.js';
+import { cronRouter } from './jobs/cron.routes.js';
 
 export function createApp(): Express {
   const cfg = env();
@@ -58,7 +59,7 @@ export function createApp(): Express {
   });
 
   const v1 = Router();
-  for (const r of [authRouter, tenantRouter, branchRouter, userRouter, posDeviceRouter, taxRouter, productRouter, customerRouter, salesRouter, receiptRouter, returnRouter, reportRouter, etaRouter, auditRouter, notificationRouter, importRouter]) {
+  for (const r of [authRouter, tenantRouter, branchRouter, userRouter, posDeviceRouter, taxRouter, productRouter, customerRouter, salesRouter, receiptRouter, returnRouter, reportRouter, etaRouter, auditRouter, notificationRouter, importRouter, cronRouter]) {
     v1.use(r());
   }
   app.use('/api/v1', v1);
