@@ -35,7 +35,9 @@ export function createApp(): Express {
 
   app.use(requestId);
   app.use(pinoHttp({ logger, genReqId: (req) => (req as express.Request).requestId, autoLogging: cfg.NODE_ENV !== 'test' }));
-  app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'", "'unsafe-inline'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:'] } } }));
+  // Inline scripts/styles are only allowed outside production, for Swagger UI (which is disabled in production).
+  const inline = cfg.NODE_ENV === 'production' ? [] : ["'unsafe-inline'"];
+  app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'", ...inline], styleSrc: ["'self'", ...inline], imgSrc: ["'self'", 'data:'], frameAncestors: ["'none'"] } } }));
   app.use(cors({ origin: cfg.CORS_ORIGINS, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Request-Id', 'X-Requested-With'], exposedHeaders: ['X-Request-Id'] }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
