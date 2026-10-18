@@ -64,5 +64,4 @@ production ETA environment, submission additionally requires
 
 - Issuer signature (CAdES-BES) — needs the taxpayer's signing device/certificate and the exact signing specification.
 - ETA→ERP notification endpoints — polling is used instead.
-- Receipt corrections with `referenceOldUUID`.
 - QR code content.

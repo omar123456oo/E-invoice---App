@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { CorrectDialog, type CorrectionBody } from './correct-dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { ApiService } from '../../core/api/api.service';
@@ -26,6 +27,7 @@ import { ReceiptPrint } from '../../shared/receipt-print';
         @if (auth.can('receipts:submit')) {
           @if (r.eta.status === 'NOT_SUBMITTED') { <button mat-flat-button class="btn-primary" (click)="submit()">{{ i18n.t('receipts.submit') }}</button> }
           @if (r.eta.status === 'FAILED') { <button mat-flat-button class="btn-primary" (click)="submit()">{{ i18n.t('receipts.requeue') }}</button> }
+          @if (['REJECTED', 'INVALID', 'FAILED'].includes(r.eta.status)) { <button mat-stroked-button (click)="correct()">{{ i18n.t('correct.title') }}</button> }
           @if (r.eta.status === 'UNKNOWN') { <button mat-flat-button class="btn-primary" (click)="reconcile()">{{ i18n.t('receipts.reconcile') }}</button> }
         }
       </header>
@@ -35,6 +37,7 @@ import { ReceiptPrint } from '../../shared/receipt-print';
           <section class="panel status">
             <app-eta-stamp [status]="r.eta.status" [large]="true" />
             <p>{{ i18n.lang() === 'ar' ? r.registration.label.ar : r.registration.label.en }}</p>
+            @if (supersededBy(); as sid) { <p><a [routerLink]="['/receipts', sid]">{{ i18n.t('correct.supersededBy') }}</a></p> }
             @if (r.eta.lastError; as err) {
               @if (err.message || err.code) { <p class="error-text"><strong>{{ i18n.t('receipts.lastError') }}:</strong> {{ err.message ?? err.code }}</p> }
             }
@@ -118,8 +121,10 @@ export class ReceiptDetailPage {
   private readonly api = inject(ApiService);
   private readonly notify = inject(NotifyService);
   private readonly dialog = inject(MatDialog);
+  private readonly router = inject(Router);
   readonly id = input.required<string>();
   readonly receipt = signal<ReceiptDetail | null>(null);
+  readonly supersededBy = computed(() => (this.receipt()?.eta as { supersededBy?: string | null } | undefined)?.supersededBy ?? null);
   readonly canReturn = computed(() => {
     const r = this.receipt();
     return !!r && r.kind === 'SALE' && r.returnStatus !== 'FULL' && this.auth.can('returns:create') && !['REJECTED', 'INVALID', 'FAILED', 'CANCELLED', 'SUPERSEDED'].includes(r.eta.status);
@@ -151,6 +156,19 @@ export class ReceiptDetailPage {
         if (!ok) return;
         this.api.post(`/receipts/${this.id()}/submit`, { reason: 'Submitted from receipt screen' }).subscribe({ next: () => this.load(this.id()), error: (e) => this.notify.error(e) });
       });
+  }
+
+  correct(): void {
+    this.dialog.open(CorrectDialog, { data: this.receipt(), width: '760px', maxWidth: '96vw' }).afterClosed().subscribe((body?: CorrectionBody) => {
+      if (!body) return;
+      this.api.post<{ id: string }>(`/receipts/${this.id()}/correct`, body).subscribe({
+        next: (r) => {
+          this.notify.success(this.i18n.t('correct.done'));
+          void this.router.navigate(['/receipts', r.id]);
+        },
+        error: (e) => this.notify.error(e),
+      });
+    });
   }
 
   reconcile(): void {

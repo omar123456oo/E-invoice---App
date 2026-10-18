@@ -8,3 +8,4 @@ coverage/
 *.log
 storage/
 .DS_Store
+e2e/shots/

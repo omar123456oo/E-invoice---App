@@ -15,6 +15,10 @@ consumers in Egypt. It issues e-receipts following the Egyptian Tax Authority
 - Receipts chained per POS device (`previousUUID`), UUID computed per the ETA serialization rules (verified against the official sample).
 - ETA submission, status polling and reconciliation that never resends blindly after a timeout.
 - Returns with approvals, proportional refunds and return receipts referencing the original.
+- Corrections of rejected receipts per the ETA rules (`referenceOldUUID`, 96-hour window).
+- Import centre: CSV/Excel product imports with row-level errors, document uploads with human review, malware scanning hook.
+- In-app and email notifications for Tax Authority problems, the 24-hour submission window, cash variances and imports.
+- Reports with CSV and Excel export.
 - Versioned tax rules with recorded verification source; decimal-only arithmetic.
 - Arabic (default, right-to-left) and English interface.
 - Role-based access, tenant isolation, MFA, hash-chained audit trail, dashboard and CSV reports.
@@ -54,6 +58,7 @@ docs/      Architecture, compliance, API (openapi.json) and operations docs
 | `npm run openapi -w apps/api` | Regenerate docs/openapi.json |
 | `npm run seed:dev -w apps/api` | Seed demo data into `MONGODB_URI` (refused in production) |
 | `npm run worker -w apps/api` | Start the background worker (needs Redis) |
+| `npm run e2e` | Browser smoke test against running API and web app (needs Chrome) |
 
 ## Documentation
 

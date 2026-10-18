@@ -10,7 +10,7 @@ RUN npm run build -w apps/api && npm prune --omit=dev --workspace apps/api
 FROM node:22.12-bookworm-slim
 ENV NODE_ENV=production
 WORKDIR /app
-RUN groupadd -r app && useradd -r -g app app
+RUN groupadd -r app && useradd -r -g app app && mkdir -p /data/storage && chown app:app /data/storage
 COPY --from=build /repo/node_modules ./node_modules
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/apps/api/package.json ./

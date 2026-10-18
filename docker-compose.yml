@@ -18,12 +18,19 @@ services:
     ports: ["6379:6379"]
     volumes: [redis-data:/data]
 
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ["scan"]
+    ports: ["3310:3310"]
+
   api:
     build: { context: ., dockerfile: apps/api/Dockerfile }
     env_file: apps/api/.env
     environment:
       MONGODB_URI: mongodb://mongo:27017/ereceipt?replicaSet=rs0
       REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /data/storage
+    volumes: [uploads:/data/storage]
     ports: ["3000:3000"]
     depends_on:
       mongo: { condition: service_healthy }
@@ -36,6 +43,8 @@ services:
     environment:
       MONGODB_URI: mongodb://mongo:27017/ereceipt?replicaSet=rs0
       REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /data/storage
+    volumes: [uploads:/data/storage]
     depends_on:
       mongo: { condition: service_healthy }
       redis: { condition: service_started }
@@ -43,3 +52,4 @@ services:
 volumes:
   mongo-data:
   redis-data:
+  uploads:

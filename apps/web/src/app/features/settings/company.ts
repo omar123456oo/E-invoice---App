@@ -36,6 +36,7 @@ const STAGES = ['NOT_STARTED', 'IN_PROGRESS', 'PREPROD_TESTING', 'PREPROD_PASSED
           <mat-form-field><mat-label>{{ i18n.t('company.returnWindow') }}</mat-label><input matInput name="rw" type="number" min="0" max="540" [(ngModel)]="c.settings.returnWindowDays" [disabled]="!editable" /></mat-form-field>
           <mat-form-field><mat-label>{{ i18n.t('company.returnApprovalAmount') }}</mat-label><input matInput name="ra" [(ngModel)]="c.settings.returnApprovalAmount" [disabled]="!editable" dir="ltr" /></mat-form-field>
           <mat-form-field><mat-label>{{ i18n.t('company.maxDiscount') }}</mat-label><input matInput name="md" [(ngModel)]="c.settings.maxCashierDiscountPercent" [disabled]="!editable" dir="ltr" /></mat-form-field>
+          <mat-checkbox class="wide" name="ea" [(ngModel)]="c.settings.emailAlerts" [disabled]="!editable">{{ i18n.t('company.emailAlerts') }}</mat-checkbox>
         </section>
         <section class="panel stack">
           <h2>{{ i18n.t('company.eta') }}</h2>
@@ -72,7 +73,7 @@ export class CompanyPage {
       settings: {
         enabledPaymentMethods: c.settings.enabledPaymentMethods, buyerIdentityThreshold: String(c.settings.buyerIdentityThreshold),
         returnWindowDays: Number(c.settings.returnWindowDays), returnApprovalAmount: String(c.settings.returnApprovalAmount),
-        maxCashierDiscountPercent: String(c.settings.maxCashierDiscountPercent),
+        maxCashierDiscountPercent: String(c.settings.maxCashierDiscountPercent), emailAlerts: Boolean(c.settings.emailAlerts),
       },
       eta: { onboardingStatus: c.eta.onboardingStatus, b2cTagConfirmed: c.eta.b2cTagConfirmed, submissionEnabled: c.eta.submissionEnabled },
     };

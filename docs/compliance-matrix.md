@@ -23,7 +23,7 @@ real taxpayer test credentials before production.
 | ETA-004 | `previousUUID` = UUID of the previous receipt from the same POS; empty only for the first | Receipt v1.2 | receipts/issuance.service.ts | Implemented | checkout.test.ts (chain, concurrency) | — |
 | ETA-005 | `receiptNumber` String(50), unique per branch | Receipt v1.2 | issuance.service.ts, unique index | Implemented | checkout.test.ts | — |
 | ETA-006 | `dateTimeIssued` UTC, valid, not in the future | Receipt v1.2, FAQ rules 11–12 | issuance.service.ts | Implemented | receipt-document.test.ts | Server clock must be NTP-synchronised (deployment) |
-| ETA-007 | Submit within the allowed duration (24 hours) unless resubmitting with ReferenceOldUUID | FAQ | eta-integration.service.ts, sweeper | Partial | — | No alert yet for receipts approaching 24 h unsent (KL-07) |
+| ETA-007 | Submit within the allowed duration (24 hours) unless resubmitting with ReferenceOldUUID | FAQ | eta-integration.service.ts, sweeper (critical alert at 20 h) | Implemented | notifications.test.ts | Late-submission request process is manual (U-10) |
 | ETA-008 | Max 500 receipts / 1.5 MB per submission; min 1; max 300 lines per receipt | FAQ | eta-integration.service.ts (100 / 1.4 MB), tax/calculation.ts (300) | Implemented | calculation.test.ts | — |
 | ETA-009 | All receipts in one submission from the same POS | FAQ rule 24 | eta-integration.service.ts (per-device batches) | Implemented | eta-lifecycle.test.ts | — |
 | ETA-010 | Authenticate POS: POST `{identity}/connect/token`, `grant_type=client_credentials`, headers `posserial`, `pososversion`, `posmodelframework`, `presharedkey`; token ≈1 h | [01 Authenticate POS](https://sdk.invoicing.eta.gov.eg/ereceiptapi/01-authenticate-pos/) | eta/eta-http-client.ts, token-manager.ts | Implemented | eta-http-client.test.ts | Body encoding not stated (U-02); needs preprod |
@@ -35,7 +35,7 @@ real taxpayer test credentials before production.
 | ETA-016 | Buyer: B needs RIN + name; P needs national ID + name when total ≥ configured value (150,000 EGP at review); F id is any foreign ID | Receipt v1.2 | checkout.service.ts, tenant settings | Implemented (threshold configurable) | checkout.test.ts | Confirm threshold before go-live |
 | ETA-017 | Return receipt at most 540 days after the sale | FAQ | returns, tenant setting (≤540) | Implemented | returns.test.ts | — |
 | ETA-018 | Return `referenceUUID` must be a receipt of the original type | FAQ rule 26 | returns | Implemented; returns are sent only after the sale is VALID (assumption A-05) | returns.test.ts | — |
-| ETA-019 | Correction: new UUID, same previousUUID, `referenceOldUUID` = invalid UUID; within 96 h (with reference) / 72 h | FAQ | — | Not implemented | — | KL-03 |
+| ETA-019 | Correction: new UUID, same previousUUID, `referenceOldUUID` = invalid UUID; within 96 h (with reference) / 72 h; later receipts keep their content | FAQ | receipts/correction.service.ts | Implemented (identification data only; amounts unchanged) | corrections.test.ts | Needs preprod; whether ETA expects the same receiptNumber is unverified (U-12) |
 | ETA-020 | Payment method codes C, V, CC, VC, VO, PR, GC, P, O | [Payment methods](https://sdk.invoicing.eta.gov.eg/codes/payment-methods/) | ETA_PAYMENT_CODES | Implemented (subset) | payment-rules.test.ts | Contractor codes CC/VC not supported; mapping assumption A-03 |
 | ETA-021 | Tax types T1–T20 and sub-types (e.g. V001–V010) | [Tax types](https://sdk.invoicing.eta.gov.eg/codes/tax-types/) | tax module | Partial: T1 percentage and exempt only | calculation.test.ts | Other treatments refused until reviewed (KL-04) |
 | ETA-022 | `taxType` unique within a line; `taxableItem.amount` precision 2 | Receipt v1.2 | calculation.ts | Implemented | calculation.test.ts | — |
@@ -74,6 +74,7 @@ real taxpayer test credentials before production.
 | U-08 | Legal retention period for receipts, payments and audit records | Tax professional / counsel | Retention jobs not implemented (KL-09) |
 | U-09 | Applicability of Personal Data Protection Law No. 151 of 2020 and its executive regulations (consent, registration, cross-border hosting) | Qualified counsel | See security.md, privacy section |
 | U-10 | Late-submission request process and parameter value | ETA | Operational procedure |
+| U-12 | Whether a corrected receipt must keep the same `receiptNumber` (we keep it) | Integration engineer | Rejection of corrections |
 | U-11 | Whether a receipt's `buyer.type` P with only a mobile number needs further data | Tax professional | Currently allowed |
 
 ## 4. Production readiness statement

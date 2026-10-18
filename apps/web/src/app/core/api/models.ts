@@ -32,11 +32,11 @@ export interface Quote { policyVersion: string; lines: CalcLine[]; totals: Total
 export interface ReceiptLine extends CalcLine { productId: string; internalCode: string; description: string; itemType: string; itemCode: string; unitType: string; returnedQuantity: string; originalLineNo: number | null }
 export interface Receipt {
   id: string; branchId: string; deviceId: string; transactionId: string; kind: 'SALE' | 'RETURN'; receiptNumber: string; chainSeq: number; uuid: string; previousUUID: string;
-  referenceUUID: string | null; originalReceiptId: string | null; dateTimeIssued: string; currency: string; paymentMethodCode: string; printCount: number; returnStatus: 'NONE' | 'PARTIAL' | 'FULL';
+  referenceUUID: string | null; referenceOldUUID?: string | null; correctionSeq?: number; originalReceiptId: string | null; dateTimeIssued: string; currency: string; paymentMethodCode: string; printCount: number; returnStatus: 'NONE' | 'PARTIAL' | 'FULL';
   seller: { rin: string; companyTradeName: string; branchCode: string; deviceSerialNumber: string; activityCode: string; branchAddress: Record<string, string | null> };
   buyer: { type: 'P' | 'B' | 'F'; name: string | null; idLast4: string | null; mobileNumber: string | null };
   lines: ReceiptLine[]; totals: Totals;
-  eta: { status: EtaStatus; statusChangedAt: string; submissionUuid: string | null; longId: string | null; attempts: number; lastError?: { code: string | null; message: string | null; details?: unknown }; history: Array<{ at: string; from: string | null; to: string; reason: string }> };
+  eta: { status: EtaStatus; statusChangedAt: string; supersededBy?: string | null; submissionUuid: string | null; longId: string | null; attempts: number; lastError?: { code: string | null; message: string | null; details?: unknown }; history: Array<{ at: string; from: string | null; to: string; reason: string }> };
   registration: { officiallyRegistered: boolean; label: { en: string; ar: string }; qrContent: string | null };
 }
 export interface Payment { id: string; direction: 'IN' | 'OUT'; method: PaymentMethod; amount: string; tendered: string | null; change: string | null; status: string; reference: string | null; recordedAt: string }
@@ -53,7 +53,7 @@ export interface ReturnRecord {
 
 export interface Company {
   id: string; legalName: string; tradeName: string; taxRegistrationNumber: string; activityCode: string; status: string;
-  settings: { currency: string; timezone: string; enabledPaymentMethods: PaymentMethod[]; requireCardAuthorizationRef: boolean; buyerIdentityThreshold: string; returnWindowDays: number; returnApprovalAmount: string; returnApprovalAfterDays: number; maxCashierDiscountPercent: string };
+  settings: { currency: string; timezone: string; enabledPaymentMethods: PaymentMethod[]; requireCardAuthorizationRef: boolean; buyerIdentityThreshold: string; returnWindowDays: number; returnApprovalAmount: string; returnApprovalAfterDays: number; maxCashierDiscountPercent: string; emailAlerts?: boolean };
   eta: { onboardingStatus: string; b2cTagConfirmed: boolean; submissionEnabled: boolean; notes: string | null };
 }
 
@@ -78,3 +78,17 @@ export interface EtaStatusInfo {
   environment: string; configuredEnvironment: string; signingMode: string; simulated: boolean;
   onboarding: Company['eta']; receiptsByStatus: Array<{ status: EtaStatus; count: number; oldestSince: string }>; recentSubmissions: Array<{ _id: string; status: string; sentAt: string; httpStatus: number | null; errorCode: string | null; acceptedCount: number; rejectedCount: number }>; warnings: string[];
 }
+
+export interface AppNotification { id: string; kind: string; severity: 'info' | 'warning' | 'critical'; title: { en: string; ar: string }; body: { en: string; ar: string }; link: string | null; readAt: string | null; createdAt: string }
+export interface Customer { id: string; buyerType: 'P' | 'B' | 'F'; name: string | null; identityLast4: string | null; mobileNumber: string | null; email: string | null; marketingConsent: boolean; lastPurchaseAt: string | null; createdAt: string }
+export interface SessionInfo { id: string; ip: string | null; userAgent: string | null; createdAt: string; lastUsedAt: string; current: boolean }
+export type ImportStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'COMMITTED' | 'NEEDS_REVIEW' | 'REVIEWED' | 'FAILED' | 'REJECTED';
+export interface ImportJob {
+  id: string; uploadId: string; kind: 'PRODUCTS' | 'DOCUMENT'; purpose: string; status: ImportStatus; attempts: number; error: string | null; createdAt: string;
+  counts: { total: number; valid: number; invalid: number; inserted: number };
+  extraction?: { provider: string | null; confidence: number | null; fields: Record<string, string> | null };
+  review?: { computed: { net: string; tax: string; total: string }; differences: string[]; documentNumber: string } | null;
+  upload?: { id?: string; originalName: string; kind: string; size: number; scan?: { status: string; detail: string | null } | string; sha256?: string } | null;
+  extractor?: string;
+}
+export interface ImportRow { id: string; rowNo: number; data: Record<string, unknown>; issues: Array<{ path: string; message: string }>; valid: boolean }

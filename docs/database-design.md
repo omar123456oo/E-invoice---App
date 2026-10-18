@@ -18,10 +18,15 @@ not filter by `tenantId`. All money and quantities are `Decimal128`.
 | products | Catalogue and official item codes | internalCode, barcode, etaItemType, etaItemCode, etaCodeStatus, unitPrice, taxCodes | `(tenantId, internalCode)` unique; `(tenantId, barcode)` unique partial |
 | customers | Optional buyer profiles | buyerType, identityEnc/identityHash (hidden), identityLast4 | `(tenantId, identityHash)` unique partial; mobile; name |
 | salesTransactions | Business sale event, idempotency | idempotencyKey, requestHash, status, totals paid/refunded | `(tenantId, idempotencyKey)` unique; `(tenantId, branchId, completedAt)` |
-| receipts | Issued sale/return receipts (immutable snapshot) + ETA state | uuid, previousUUID, referenceUUID, chainSeq, lines[≤300], totals, etaDocumentEnc (hidden), eta.* | `(tenantId, uuid)` unique; `(tenantId, branchId, receiptNumber)` unique; `(tenantId, deviceId, chainSeq)` unique; `(tenantId, eta.status, deviceId, chainSeq)`; submissionUuid partial |
+| receipts | Issued sale/return receipts (immutable snapshot) + ETA state | uuid, previousUUID, referenceUUID, chainSeq, lines[≤300], totals, etaDocumentEnc (hidden), eta.* | `(tenantId, uuid)` unique; `(tenantId, branchId, receiptNumber, correctionSeq)` unique; `(tenantId, deviceId, chainSeq, correctionSeq)` unique; `(tenantId, eta.status, deviceId, chainSeq)`; submissionUuid partial |
 | payments | Money in (sales) and out (refunds) | direction, method, amount, status, reference | `(tenantId, shiftId, method)`; `(tenantId, transactionId)`; `(tenantId, branchId, recordedAt)` |
 | returns | Return requests and approvals | status, lines, refundMethod, requiresApprovalReasons | `(tenantId, idempotencyKey)` unique; `(tenantId, originalReceiptId)` |
 | etaSubmissions | One record per HTTP submission attempt | status, requestHash, submissionUuid, httpStatus, counts | `(tenantId, sentAt)`; `(tenantId, submissionUuid)` |
+| notifications | One in-app notification per recipient | userId, kind, severity, title/body (ar+en), link, dedupeKey, readAt | `(tenantId, userId, readAt, createdAt)`; `(tenantId, userId, dedupeKey)` unique; TTL 180 d |
+| notificationJobs | Email outbox | to, subject, text, status, attempts, nextAttemptAt | `(status, nextAttemptAt)` |
+| documentUploads | Uploaded files (content in private storage) | purpose, kind, mime, size, sha256, storageKey, scan | `(tenantId, purpose, sha256)` unique |
+| importJobs | Processing state of an upload | kind, status, counts, extraction, review | `(tenantId, createdAt)`; `(status, updatedAt)` |
+| importRows | Parsed rows of a product import | jobId, rowNo, data, issues, valid | `(tenantId, jobId, rowNo)` unique |
 | auditEvents | Append-only hash chain | chainKey, seq, prevHash, hash, action, changes (redacted) | `(chainKey, seq)` unique; `(tenantId, at)`; entity; action |
 
 ## Immutability
@@ -49,6 +54,13 @@ audit events) is its own collection.
 | Create tenant | tenant, owner user, auditEvents |
 
 ## Migrations and indexes
+
+**2026-10-18 — receipt corrections.** Receipts gained `correctionSeq`,
+`correctsReceiptId`, `correctionReason`, `eta.windowAlertedAt`. The unique indexes
+on receipt number and chain position now include `correctionSeq`. Existing
+databases must drop `tenantId_1_branchId_1_receiptNumber_1` and
+`tenantId_1_deviceId_1_chainSeq_1` before `syncIndexes()` creates the new ones.
+
 
 There is no migration framework yet. Indexes are created by Mongoose
 (`autoIndex` is disabled in production); run `syncIndexes()` from a release

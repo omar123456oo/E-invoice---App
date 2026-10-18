@@ -28,6 +28,12 @@ export class ApiService {
   put<T>(path: string, body: unknown): Observable<T> {
     return this.http.put<T>(`${API_BASE}${path}`, body);
   }
+  delete<T>(path: string): Observable<T> {
+    return this.http.delete<T>(`${API_BASE}${path}`);
+  }
+  upload<T>(path: string, form: FormData): Observable<T> {
+    return this.http.post<T>(`${API_BASE}${path}`, form);
+  }
   download(path: string, params?: Params): Observable<Blob> {
     return this.http.get(`${API_BASE}${path}`, { params: toParams(params), responseType: 'blob' });
   }

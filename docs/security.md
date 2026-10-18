@@ -39,6 +39,14 @@ change their own role/status, and can only assign roles below their own.
 - CSV export neutralises formula injection.
 - Card data: references that look like card numbers (Luhn) are refused; no PAN/CVV is ever stored.
 
+## File uploads (ASVS V12)
+
+- One file per request, size limit `MAX_UPLOAD_MB` (default 10 MB), in-memory parsing; permission is checked before the body is read.
+- Type is decided by content (magic bytes via `file-type`); CSV must be valid UTF-8 without NUL bytes. Allowed types depend on the purpose.
+- Malware scanning through ClamAV (`CLAMAV_ADDRESS`); infected files are refused and audited. Without a scanner, files are stored as `NOT_SCANNED` and the UI says so.
+- Files are stored outside the web root under `STORAGE_DIR/<tenant>/<sha256>.<ext>` (mode 0600), keys validated against path traversal, downloaded only with `Content-Disposition: attachment` and `nosniff`; downloads are audited.
+- Uploaded documents never create or submit tax receipts; extracted or reviewed values are untrusted and totals are recalculated on the server.
+
 ## Data protection (ASVS V6, V8)
 
 - AES-256-GCM (`DATA_ENCRYPTION_KEY`) for ETA device credentials, MFA secrets, customer identity numbers and the stored ETA receipt documents (which may contain a buyer's national ID).
@@ -80,10 +88,9 @@ profiles (issued receipts keep the legally required snapshot).
 
 ## Known gaps
 
-See [known-limitations.md](known-limitations.md): no SMTP mailer, no malware
-scanning (uploads not implemented), no secret manager integration, no
-automated dependency/container scanning results recorded yet (CI job defined),
-JWT secret rotation is manual.
+See [known-limitations.md](known-limitations.md): no secret manager integration,
+no automated dependency/container scanning results recorded yet (CI jobs defined),
+JWT secret rotation is manual, malware scanning depends on an external ClamAV daemon.
 
 ## Incident response (summary)
 

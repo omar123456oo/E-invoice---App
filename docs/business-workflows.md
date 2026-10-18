@@ -37,8 +37,29 @@ Three separate records exist: the return request, the refund payment (money out)
 - `UNKNOWN` receipts can be checked immediately with **Check status with the Tax Authority**.
 - **Run sending and follow-up now** on the Tax Authority link page triggers a sweep.
 
+## Correcting a rejected or invalid receipt
+
+1. Open the receipt (the dashboard and notifications link to it) and read the Tax Authority's error.
+2. Fix the cause in the master data, usually the product's official item code.
+3. Choose **Issue corrected receipt**: use the current product codes, or edit the codes per line, and give a reason.
+4. The corrected receipt is queued and sent; the original is shown as superseded. This is allowed for 96 hours after issue.
+
+## Notifications
+
+Users receive in-app notifications (and email, when the company enables email
+alerts) for: receipts rejected, invalid or failed at the Tax Authority; receipts
+not registered 20 hours after issue; cash variances at shift close; finished or
+failed imports; background jobs that failed permanently. Recipients are the users
+whose role can act on the problem.
+
+## Imports
+
+- **Products**: download the CSV template, fill it (or an Excel sheet with the same columns), upload it, review the row-by-row preview, then import the valid rows. Rows are re-validated at import time.
+- **Documents** (supplier invoices, existing official receipts, other documents as PDF/JPG/PNG): upload, then record the document's data in the review form. The system recalculates totals and asks you to confirm any difference. Documents are kept for reference and never become tax receipts.
+- Every upload is checked by content, scanned for malware when a scanner is configured, and stored privately; uploading the same file twice returns the earlier upload.
+
 ## Reconciliation and reporting
 
 - Shift history shows opening float, expected and counted cash and variance.
 - Dashboard: net revenue, sales and returns including tax, gross sales, discounts, tax by type, payments in/out by method, sales by branch and device, ETA status counts. Figures come from issued receipts regardless of ETA acceptance and are labelled as such.
-- CSV exports: sales by product, sales by cashier (operational reports, not tax returns).
+- Reports (screen, CSV and Excel): sales by product, sales by cashier, tax summary by type/sub-type/rate net of returns, returns and refunds, Tax Authority processing (receipts needing attention), shift reconciliation. These are operational reports, not tax returns.

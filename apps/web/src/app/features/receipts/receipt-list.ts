@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -73,8 +73,14 @@ export class ReceiptListPage {
   etaStatus = '';
   kind = '';
 
+  /** Optional ?etaStatus= filter, e.g. from a notification link. */
+  readonly etaStatusParam = input<string>(undefined, { alias: 'etaStatus' });
+
   constructor() {
-    this.load(1);
+    queueMicrotask(() => {
+      if (this.etaStatusParam()) this.etaStatus = this.etaStatusParam()!;
+      this.load(1);
+    });
   }
 
   load(page: number): void {

@@ -14,7 +14,8 @@
 - **API** serves the Angular app's REST calls, validates every request with Zod,
   enforces authentication, RBAC and tenant isolation, and writes MongoDB.
 - **Worker** (`dist/jobs/worker.js`) runs ETA submission, polling and
-  reconciliation jobs from BullMQ, plus a 30-second database sweeper.
+  reconciliation jobs and import processing from BullMQ, plus a 30-second database sweeper
+  that also sends the email outbox and raises 24-hour-window alerts.
   Without Redis (development) the API runs the sweeper in-process.
 - **MongoDB** is the source of truth for every receipt's ETA state. Queues only
   speed work up; a lost job delays work until the next sweep and never loses a receipt.
@@ -46,7 +47,8 @@ docs/         Documentation and generated openapi.json
 | eta | Serializer, receipt document builder, HTTP client, token manager, signer, submission/reconciliation service, simulated ETA |
 | reports | Dashboard and operational reports, CSV export |
 | audit | Hash-chained audit trail |
-| notifications | Mailer interface (in-memory implementation only, see known limitations) |
+| notifications | In-app notifications fanned out by permission, durable email outbox, SMTP mailer |
+| imports | Upload validation, malware scanning, private storage, product imports, document review |
 
 Shared code lives in `src/common` (errors, logging, middleware, security, money,
 db helpers, route helper). Each route is declared once with `route()`; `mount()`

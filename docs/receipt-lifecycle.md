@@ -53,10 +53,22 @@ and enforced on every update (`assertTransition`). Status meaning:
 | VALID | ETA status Valid | **Yes** |
 | INVALID | ETA status Invalid | No |
 | CANCELLED | ETA status Cancelled | No (cancelled) |
-| SUPERSEDED | Replaced by a corrected receipt (reserved; correction not implemented) | No |
+| SUPERSEDED | Replaced by a corrected receipt that references it | No |
 
 Printed and on-screen receipts state "Internal receipt — not registered with the
 Tax Authority" in every state except `VALID`.
+
+## Corrections
+
+A `REJECTED`, `INVALID` or `FAILED` receipt can be corrected within 96 hours of
+issue (`POST /receipts/:id/correct`, permission `receipts:submit`):
+
+- Only identification data changes: item type/code, unit type, description, buyer details.
+  Quantities, prices, discounts, taxes and totals cannot change; a different sale needs a return and a new sale.
+- The corrected receipt keeps the original `dateTimeIssued`, `receiptNumber`, chain position and
+  `previousUUID`, gets a new UUID and `referenceOldUUID` = the original UUID, and is queued.
+- The original becomes `SUPERSEDED` with a link to the correction; the sale transaction (or return) points to the new receipt.
+- Later receipts of the device keep their content (they still reference the original UUID), as the ETA FAQ describes.
 
 ## Safety rules
 

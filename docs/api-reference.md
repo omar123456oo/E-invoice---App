@@ -13,6 +13,8 @@ development, Swagger UI is served at `http://localhost:3000/api/docs`.
   `POST /auth/refresh` using the httpOnly `rt` cookie and header `X-Requested-With: XMLHttpRequest`.
 - Pagination: `?page=1&pageSize=25` (max 200); responses `{ items, page, pageSize, total, totalPages }`.
 - Unknown body properties are dropped (no mass assignment).
+- File uploads: `POST /imports/uploads` is `multipart/form-data` with fields `file` and `purpose`; files are identified by content, limited to `MAX_UPLOAD_MB`.
+- Report exports: add `format=csv` or `format=xlsx` to any `/reports/*` endpoint except the dashboard.
 - `Idempotency-Key` (16–64 chars `[A-Za-z0-9-]`) is **required** for
   `POST /pos/checkout` and `POST /returns`. Replaying a key returns the original
   result; reusing a key with a different payload returns `409 IDEMPOTENCY_KEY_REUSED`.
@@ -30,6 +32,8 @@ development, Swagger UI is served at `http://localhost:3000/api/docs`.
 | 403 | FORBIDDEN, BRANCH_FORBIDDEN, ROLE_NOT_ASSIGNABLE, DISCOUNT_LIMIT_EXCEEDED, CSRF_HEADER_MISSING |
 | 404 | NOT_FOUND, ROUTE_NOT_FOUND |
 | 409 | DUPLICATE, IDEMPOTENCY_KEY_REUSED, SHIFT_ALREADY_OPEN, CHAIN_CONFLICT |
+| 413 | PAYLOAD_TOO_LARGE |
+| 422 | NOT_CORRECTABLE, CORRECTION_WINDOW_EXPIRED, NOTHING_TO_CORRECT, UNSUPPORTED_FILE_TYPE, MALWARE_DETECTED, IMPORT_HAS_ERRORS, TOTALS_MISMATCH, INSUFFICIENT_DRAWER_CASH |
 | 422 | VALIDATION_FAILED, BUYER_IDENTITY_REQUIRED, NO_OPEN_SHIFT, TAX_RULE_NOT_IN_FORCE, UNSUPPORTED_TAX_TREATMENT, ORIGINAL_NOT_RETURNABLE, RETURN_WINDOW_EXPIRED, INVALID_ETA_STATE |
 | 423 | ACCOUNT_LOCKED |
 | 429 | RATE_LIMITED |
@@ -52,6 +56,7 @@ The last column is the permission the server enforces (see `security.md` for the
 | POST | `/api/v1/auth/password/reset` | Reset password using an emailed token | public |
 | POST | `/api/v1/auth/mfa/setup` | Begin TOTP enrollment | any signed-in user |
 | POST | `/api/v1/auth/mfa/confirm` | Confirm TOTP enrollment with a code | any signed-in user |
+| POST | `/api/v1/auth/mfa/disable` | Turn off TOTP (requires password and a current code) | any signed-in user |
 | POST | `/api/v1/platform/tenants` | Create a company (tenant) with its owner account | platform:tenants:manage |
 | GET | `/api/v1/platform/tenants` | List companies | platform:tenants:manage |
 | PATCH | `/api/v1/platform/tenants/{id}/status` | Suspend or reactivate a company | platform:tenants:manage |
@@ -92,17 +97,37 @@ The last column is the permission the server enforces (see `security.md` for the
 | GET | `/api/v1/receipts/{id}` | Receipt detail with ETA status, errors and payments | receipts:read |
 | POST | `/api/v1/receipts/{id}/print` | Record a (re)print and return printable data | receipts:reprint |
 | POST | `/api/v1/receipts/{id}/submit` | Queue a receipt for ETA submission (or re-queue after a FAILED submission was fixed) | receipts:submit |
+| POST | `/api/v1/receipts/{id}/correct` | Issue a corrected receipt (new UUID, referenceOldUUID) for a rejected, invalid or failed receipt | receipts:submit |
 | POST | `/api/v1/receipts/{id}/reconcile` | Ask ETA for the status of a receipt whose submission outcome is unknown | receipts:submit |
 | GET | `/api/v1/returns` | List returns | returns:read |
 | POST | `/api/v1/returns` | Request a return against an original sale receipt (requires Idempotency-Key header) | returns:create |
 | POST | `/api/v1/returns/{id}/decision` | Approve or reject a pending return | returns:approve |
 | POST | `/api/v1/returns/{id}/complete` | Issue the return receipt and record the refund in the open shift | returns:create |
 | GET | `/api/v1/reports/dashboard` | Dashboard figures for a period | reports:read |
-| GET | `/api/v1/reports/sales-by-product` | Operational report: sales-by-product (json or csv). Not an official tax return. | reports:read |
-| GET | `/api/v1/reports/sales-by-cashier` | Operational report: sales-by-cashier (json or csv). Not an official tax return. | reports:read |
+| GET | `/api/v1/reports/sales-by-product` | Operational report: sales-by-product (json, csv or xlsx). Not an official tax return. | reports:read |
+| GET | `/api/v1/reports/sales-by-cashier` | Operational report: sales-by-cashier (json, csv or xlsx). Not an official tax return. | reports:read |
+| GET | `/api/v1/reports/tax-summary` | Operational report: tax-summary (json, csv or xlsx). Not an official tax return. | reports:read |
+| GET | `/api/v1/reports/refunds` | Operational report: refunds (json, csv or xlsx). Not an official tax return. | reports:read |
+| GET | `/api/v1/reports/eta-processing` | Operational report: eta-processing (json, csv or xlsx). Not an official tax return. | reports:read |
+| GET | `/api/v1/reports/shift-reconciliation` | Operational report: shift-reconciliation (json, csv or xlsx). Not an official tax return. | reports:read |
 | GET | `/api/v1/eta/status` | Integration configuration and health for my company | eta:read |
 | GET | `/api/v1/eta/submissions` | Submission attempts log | eta:read |
 | POST | `/api/v1/eta/process` | Run submission, polling and reconciliation now for my company | eta:manage |
 | GET | `/api/v1/audit-events` | Search the audit trail | audit:read |
 | GET | `/api/v1/audit-events/verify` | Verify the integrity of my company audit chain | audit:read |
+| GET | `/api/v1/notifications` | My notifications | any signed-in user |
+| GET | `/api/v1/notifications/unread-count` | Number of unread notifications | any signed-in user |
+| POST | `/api/v1/notifications/{id}/read` | Mark a notification as read | any signed-in user |
+| POST | `/api/v1/notifications/read-all` | Mark all my notifications as read | any signed-in user |
+| GET | `/api/v1/imports/templates/products.csv` | Download the product import template | imports:read |
+| POST | `/api/v1/imports/uploads` | Upload a file (CSV/XLSX product import; PDF/JPG/PNG documents). Checked by content, scanned, de-duplicated by SHA-256 | imports:manage |
+| GET | `/api/v1/imports` | Import history | imports:read |
+| GET | `/api/v1/imports/{id}` | Import detail | imports:read |
+| GET | `/api/v1/imports/{id}/rows` | Parsed rows with row-level errors | imports:read |
+| POST | `/api/v1/imports/{id}/commit` | Import the valid rows of a product import | products:manage |
+| POST | `/api/v1/imports/{id}/review` | Record the human review of an uploaded document (totals recalculated; never creates a tax receipt) | imports:manage |
+| POST | `/api/v1/imports/{id}/retry` | Retry a failed import | imports:manage |
+| POST | `/api/v1/imports/{id}/reject` | Discard an import | imports:manage |
+| GET | `/api/v1/imports/uploads/{id}/file` | Download the original uploaded file | imports:read |
+
 Health checks (no auth): `GET /health/live`, `GET /health/ready` (MongoDB connectivity).

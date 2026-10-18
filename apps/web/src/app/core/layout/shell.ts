@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../auth/auth.service';
 import { I18nService } from '../i18n/i18n.service';
+import { NotificationsService } from '../notifications.service';
 
 interface NavItem { path: string; label: string; permission: string }
 
@@ -14,7 +15,11 @@ const NAV: NavItem[] = [
   { path: '/returns', label: 'nav.returns', permission: 'returns:read' },
   { path: '/shifts', label: 'nav.shifts', permission: 'payments:read' },
   { path: '/products', label: 'nav.products', permission: 'products:read' },
+  { path: '/customers', label: 'nav.customers', permission: 'customers:read' },
+  { path: '/reports', label: 'nav.reports', permission: 'reports:read' },
+  { path: '/imports', label: 'nav.imports', permission: 'imports:read' },
   { path: '/settings/tax', label: 'nav.tax', permission: 'tax:read' },
+  { path: '/settings/branches', label: 'nav.branches', permission: 'branches:read' },
   { path: '/settings/devices', label: 'nav.devices', permission: 'pos:devices:read' },
   { path: '/settings/company', label: 'nav.company', permission: 'company:read' },
   { path: '/eta', label: 'nav.eta', permission: 'eta:read' },
@@ -36,8 +41,12 @@ const NAV: NavItem[] = [
           }
         </nav>
         <div class="spacer"></div>
+        <a class="bell" routerLink="/notifications" routerLinkActive="active">
+          {{ i18n.t('nav.notifications') }}
+          @if (notifications.unread() > 0) { <span class="count num" [attr.aria-label]="notifications.unread() + ' ' + i18n.t('notif.unread')">{{ notifications.unread() }}</span> }
+        </a>
         <div class="who">
-          <div class="name">{{ auth.me()?.user?.name }}</div>
+          <a class="name" routerLink="/profile">{{ auth.me()?.user?.name }}</a>
           <div class="role">{{ i18n.t('role.' + auth.me()?.user?.role) }}</div>
           <div class="row">
             <button mat-button class="light" (click)="i18n.toggle()">{{ i18n.t('common.language') }}</button>
@@ -57,7 +66,11 @@ const NAV: NavItem[] = [
     nav a:hover { background: rgba(255,255,255,0.06); color: #fff; }
     nav a.active { background: rgba(255,255,255,0.1); color: #fff; border-inline-start-color: var(--brass); font-weight: 600; }
     .who { border-top: 1px solid rgba(255,255,255,0.15); padding: 14px 12px 0; }
-    .who .name { color: #fff; font-weight: 600; }
+    .who .name { color: #fff; font-weight: 600; text-decoration: none; display: block; }
+    .who .name:hover { text-decoration: underline; }
+    .bell { display: flex; align-items: center; gap: 8px; color: #c9dedd; text-decoration: none; padding: 9px 12px; margin-bottom: 8px; border-radius: var(--radius-s); }
+    .bell:hover, .bell.active { background: rgba(255,255,255,0.1); color: #fff; }
+    .count { background: var(--brass); color: #1b1300; border-radius: 999px; padding: 0 8px; font-size: 0.8rem; font-weight: 700; }
     .who .role { font-size: 0.85rem; color: #a9c4c2; margin-bottom: 6px; }
     .light { --mat-button-text-label-text-color: #ffffff; --mat-button-text-state-layer-color: #ffffff; color: #fff; }
     .content { padding: 28px 32px; min-width: 0; }
@@ -73,5 +86,10 @@ const NAV: NavItem[] = [
 export class Shell {
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
+  readonly notifications = inject(NotificationsService);
   readonly items = computed(() => NAV.filter((n) => this.auth.permissions().has(n.permission)));
+
+  constructor() {
+    if (this.auth.me()?.user?.tenantId) this.notifications.start(inject(DestroyRef));
+  }
 }

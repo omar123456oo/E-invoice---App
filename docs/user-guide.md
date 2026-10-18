@@ -40,6 +40,28 @@ page. When approved, choose the device and **Issue return receipt and refund**.
 | Rejected / Invalid | The Tax Authority refused it; the error is shown on the receipt page | Fix the cause (often a product code) and contact your administrator |
 | Sending failed | A configuration or format problem | Fix the cause, then **Resend after fixing** |
 
+## Notifications and your account
+
+- **Notifications** in the side menu shows a count of unread alerts. Open an alert to go to the receipt, shift or import it concerns.
+- Click your name to open **My account**: change your password, turn two-step verification on or off, and end sessions on other devices.
+
+## Correcting a receipt the Tax Authority refused
+
+On the receipt page, read the error, fix the product's code if needed, then choose
+**Issue corrected receipt**. Amounts cannot be changed this way. You have 96 hours
+from the time the receipt was issued.
+
+## Import centre
+
+1. Choose the file type. For products, download the template first.
+2. Pick the file and choose **Upload file**.
+3. For products, check the rows marked with errors. Import only the valid rows, or fix the file and upload it again.
+4. For documents, type the document's details and lines as printed, enter its totals and **Save review**. If the totals differ from the calculated ones, the difference is shown and must be confirmed.
+
+## Reports
+
+Choose the report, the dates and optionally a branch, then **Show**. Use **Export CSV** or **Export Excel** to download it.
+
 ## Managers and administrators
 
 - **Products**: official code type and code must come from the Tax Authority code registry. Mark the code status **Approved** once confirmed.
@@ -48,4 +70,6 @@ page. When approved, choose the device and **Issue return receipt and refund**.
 - **Company**: payment methods, the amount above which buyer identity is required, return limits, maximum cashier discount, and the Tax Authority switches (B2C tag confirmed, sending enabled).
 - **Tax Authority link**: environment, warnings, receipts by status and recent submission attempts; **Run sending and follow-up now** processes pending work immediately.
 - **Users**: add users, deactivate them or sign them out everywhere.
+- **Customers**: optional buyer profiles; identity numbers are shown masked. **Erase personal data** anonymises a profile.
+- **Branches**: each branch needs the branch code registered with the Tax Authority and its address.
 - **Audit trail**: search events and **Verify integrity** to check nothing was altered.
