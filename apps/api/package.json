@@ -18,7 +18,9 @@
     "bootstrap": "tsx --env-file-if-exists=.env src/scripts/bootstrap.ts",
     "vercel-build": "npm run build",
     "db:start": "tsx src/scripts/local-mongo.ts",
-    "db:stop": "tsx src/scripts/local-mongo.ts stop"
+    "db:stop": "tsx src/scripts/local-mongo.ts stop",
+    "db:secure": "tsx src/scripts/local-mongo.ts secure",
+    "db:public": "tsx src/scripts/local-mongo.ts public"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "8.5.0",
