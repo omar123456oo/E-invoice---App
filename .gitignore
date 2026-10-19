@@ -9,3 +9,4 @@ coverage/
 storage/
 .DS_Store
 e2e/shots/
+.data/
