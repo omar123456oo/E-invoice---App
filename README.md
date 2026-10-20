@@ -41,9 +41,14 @@ For a persistent setup with MongoDB and Redis see [docs/deployment.md](docs/depl
 
 ## Repository layout
 
+Two independent npm-workspace packages — the **backend** and the **frontend**
+— plus documentation. Neither app shares code with the other; they talk only
+over the HTTP API documented in [docs/api-reference.md](docs/api-reference.md).
+See each app's own README for details.
+
 ```
-apps/api   Express 5 + TypeScript API, BullMQ worker, tests (Vitest)
-apps/web   Angular 22 application
+apps/api   Backend: Express 5 + TypeScript API, BullMQ worker, tests (Vitest). See apps/api/README.md.
+apps/web   Frontend: Angular 22 application. See apps/web/README.md.
 docs/      Architecture, compliance, API (openapi.json) and operations docs
 ```
 

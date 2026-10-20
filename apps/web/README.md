@@ -1,59 +1,82 @@
-# Web
+# Web app (frontend)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.0.
+This is the **frontend** of the Egyptian B2C E-Receipt platform: an Angular 22
+application (standalone components, signals, zoneless change detection,
+Angular Material). It renders the POS, back office and reports, and holds no
+business logic that the backend doesn't also enforce — route guards here are
+for user experience, not security (see [backend's README](../api/README.md)
+and [docs/security.md](../../docs/security.md) for where enforcement lives).
+
+The backend is [`apps/api`](../api).
+
+## How it talks to the backend
+
+Every API call goes through `ApiService` (`src/app/core/api/api.service.ts`),
+which prefixes paths with the single constant `API_BASE = '/api/v1'`. There is
+no other place in the app that builds a backend URL.
+
+`API_BASE` is a **relative path**, not a hostname, by design: in every
+environment this app is served from the same origin as the API —
+
+- **Local development:** `proxy.conf.json` forwards `/api/*` from
+  `localhost:4200` to the API at `localhost:3000`, so the browser never makes a
+  cross-origin request and the backend's `CORS_ORIGINS` allowlist exists only
+  as defence in depth, not as the thing making dev work.
+- **Production (Vercel):** the repository's `vercel.json` rewrites `/api/*`
+  and `/health/*` to the API service and everything else to this app, on the
+  same domain.
+
+**There is no `.env` or `environment.ts` for this app, and intentionally no
+`.env.example`.** There is nothing environment-specific to configure: the API
+base is always the same relative path, and every secret (JWT signing key,
+database credentials, ETA credentials, encryption key) lives only in the
+backend's environment, never here. If a future deployment target needs a
+cross-origin API (a different domain for the API), that is the point at which
+`API_BASE` would need to become configurable — it currently is not, because it
+has never needed to be.
+
+Authentication: the backend issues a short-lived JWT access token (kept in
+memory by `AuthService`, not in storage) and a long-lived refresh token in an
+httpOnly cookie the browser cannot read. `auth.interceptor.ts` attaches the
+access token to every `/api/v1` request and, on a 401, calls
+`POST /auth/refresh` once and retries.
 
 ## Development server
 
-To start a local development server, run:
-
 ```bash
-ng serve
+npm start -w apps/web          # ng serve --proxy-config proxy.conf.json, http://localhost:4200
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
+The API must be running first (see the backend README) — otherwise requests
+through the proxy fail.
 
 ## Building
 
-To build the project run:
-
 ```bash
-ng build
+npm run build -w apps/web      # dist/web/browser
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Tests
 
 ```bash
-ng test
+npm test -w apps/web           # Vitest + jsdom
 ```
 
-## Running end-to-end tests
+## Project layout
 
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
+```
+src/app/core/        API client, auth (token, interceptor, guards), notifications
+src/app/features/    One folder per screen (pos, receipts, returns, reports, ...)
+src/app/shared/       Reusable components
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Route guards (`core/auth/guards.ts`) redirect signed-out or under-permissioned
+users for a clean UX; every one of those permissions is re-checked by the
+backend on the actual request, so a guard bug here is a UX bug, not a security
+hole.
 
-## Additional Resources
+## More documentation
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- [Architecture](../../docs/architecture.md)
+- [API reference](../../docs/api-reference.md)
+- [User guide](../../docs/user-guide.md)

@@ -22,9 +22,15 @@
 
 ## Monorepo
 
+`apps/api` is the **backend** and `apps/web` is the **frontend** — two
+independent npm-workspace packages (own `package.json`, build, tests, deploy
+target) that share no code and talk only over the REST API below. The
+frontend never imports MongoDB/Mongoose and holds no backend secret; see
+[architecture-audit.md](architecture-audit.md) for how that was verified.
+
 ```
-apps/api      Express + TypeScript API, worker, scripts, tests
-apps/web      Angular 22 application (standalone components, signals, zoneless)
+apps/api      Backend: Express + TypeScript API, worker, scripts, tests
+apps/web      Frontend: Angular 22 application (standalone components, signals, zoneless)
 docs/         Documentation and generated openapi.json
 ```
 
