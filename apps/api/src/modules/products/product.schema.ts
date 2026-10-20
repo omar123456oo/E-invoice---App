@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { DECIMAL_STRING_RE, dec } from '../../common/money/decimal.js';
 
-const price = z.string().regex(DECIMAL_STRING_RE).refine((v) => dec(v).gte(0), 'Price cannot be negative');
+// The refine also runs when the regex fails (Zod 4), so it must not call dec() on a non-decimal.
+const price = z.string().regex(DECIMAL_STRING_RE).refine((v) => !DECIMAL_STRING_RE.test(v) || dec(v).gte(0), 'Price cannot be negative');
 
 export const ProductBody = z.object({
   kind: z.enum(['GOODS', 'SERVICE']),

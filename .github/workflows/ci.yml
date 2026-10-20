@@ -15,8 +15,10 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run lint -w apps/api
-      - run: npm test -w apps/api
+      - run: npm run test:coverage -w apps/api
       - run: npm run build -w apps/api
+      - name: OpenAPI document matches the code
+        run: npm run openapi -w apps/api && git diff --exit-code docs/openapi.json
       - run: npm audit --workspace apps/api --omit=dev --audit-level=high
 
   web:

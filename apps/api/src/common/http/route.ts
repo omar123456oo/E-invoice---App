@@ -59,6 +59,7 @@ function parse<T>(schema: ZodType<T> | undefined, value: unknown, location: stri
  * OpenAPI document, so the published contract and the implementation cannot drift.
  * Zod object schemas strip unknown keys, which prevents mass assignment.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- each definition has its own params/query/body types
 export function mount(router: Router, basePath: string, defs: RouteDef<any, any, any>[]): void {
   for (const def of defs) {
     const fullPath = `${basePath}${def.path}`;

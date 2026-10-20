@@ -291,7 +291,7 @@ export class EtaIntegrationService {
     const token = await this.token(tenantId, sample.deviceId);
     let updated = 0;
     let page = 1;
-    let totalPages = 1;
+    let totalPages: number;
     let overall: string | undefined;
     do {
       const res = await this.api.getSubmission(token, submissionUuid, page, 100);

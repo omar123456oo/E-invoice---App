@@ -74,7 +74,7 @@ export function receiptRouter(): Router {
         const r = await loadReceipt(ctx, params.id);
         const svc = getEtaService();
         const status = r.eta.status as EtaStatus;
-        let moved = 0;
+        let moved: number;
         if (status === 'NOT_SUBMITTED') moved = await svc.queueNotSubmitted(r.tenantId, [r._id]);
         else if (status === 'FAILED') moved = await svc.requeueFailed(r.tenantId, [r._id], body.reason);
         else throw AppError.businessRule(`A receipt in status ${status} cannot be queued`, 'INVALID_ETA_STATE');

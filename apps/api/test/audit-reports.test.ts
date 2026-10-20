@@ -11,7 +11,10 @@ describe('audit trail', () => {
     const s = await seedCompany();
     const owner = await login(t.app, s.users.COMPANY_OWNER!.email);
     await request(t.app).patch(`/api/v1/products/${s.products.taxed}`).set(bearer(owner)).send({ unitPrice: '55.00' });
-    const ok = await request(t.app).get('/api/v1/audit-events/verify').set(bearer(owner));
+    // A no-op update records an empty diff `{}`, which must be stored as-is to keep its hash valid.
+    await request(t.app).patch('/api/v1/company').set(bearer(owner)).send({ contact: { phone: '+20200000000' } });
+    await request(t.app).patch('/api/v1/company').set(bearer(owner)).send({ contact: { phone: '+20200000000' } });
+    const ok =await request(t.app).get('/api/v1/audit-events/verify').set(bearer(owner));
     expect(ok.body.valid).toBe(true);
     expect(ok.body.checked).toBeGreaterThanOrEqual(2);
 

@@ -30,7 +30,8 @@ const AuditEventSchema = new Schema(
     prevHash: { type: String, required: true },
     hash: { type: String, required: true },
   },
-  { ...baseSchemaOptions, timestamps: false },
+  // minimize: false keeps empty objects (e.g. a no-op diff `{}`); dropping them would break the stored hash.
+  { ...baseSchemaOptions, timestamps: false, minimize: false },
 );
 
 AuditEventSchema.index({ chainKey: 1, seq: 1 }, { unique: true });

@@ -88,7 +88,13 @@ export async function sweepAll(): Promise<void> {
   } catch (err) {
     logger.error({ err }, 'Email outbox processing failed');
   }
-  const tenants = await TenantModel.find({ status: 'ACTIVE', 'eta.submissionEnabled': true }, { _id: 1 }).lean();
+  let tenants: Array<{ _id: Types.ObjectId }>;
+  try {
+    tenants = await TenantModel.find({ status: 'ACTIVE', 'eta.submissionEnabled': true }, { _id: 1 }).lean();
+  } catch (err) {
+    logger.error({ err }, 'Could not list tenants to sweep');
+    return;
+  }
   for (const t of tenants) {
     try {
       await sweepTenant(t._id);
@@ -107,9 +113,11 @@ export function startInProcessSweeper(intervalMs = 30_000): void {
   timer = setInterval(() => {
     if (running) return;
     running = true;
-    sweepAll().finally(() => {
-      running = false;
-    });
+    sweepAll()
+      .catch((err: unknown) => logger.error({ err }, 'Sweep failed'))
+      .finally(() => {
+        running = false;
+      });
   }, intervalMs);
   timer.unref();
 }

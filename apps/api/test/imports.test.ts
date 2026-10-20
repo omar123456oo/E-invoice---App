@@ -30,6 +30,7 @@ describe('import centre', () => {
       'GOODS,IMP-2,,قهوة,,Coffee,EGS,EG-1-101,EA,-4,VAT_STD',
       'SERVICE,IMP-3,,خدمة,Service,Repair,EGS,EG-1-102,EA,100,NOPE',
       'GOODS,SKU-1,,مكرر,,Existing,EGS,EG-1-103,EA,1,VAT_STD',
+      'GOODS,IMP-5,,سعر,,Bad price,EGS,EG-1-104,EA,abc,VAT_STD',
     );
     const up = await upload(owner, 'PRODUCT_IMPORT', file, 'products.csv');
     expect(up.status).toBe(201);
@@ -37,9 +38,10 @@ describe('import centre', () => {
     expect(await processImportJob(s.tenantId, new Types.ObjectId(up.body.job.id))).toBe('READY');
 
     const job = await request(t.app).get(`/api/v1/imports/${up.body.job.id}`).set(bearer(owner));
-    expect(job.body.counts).toMatchObject({ total: 4, valid: 1, invalid: 3 });
+    expect(job.body.counts).toMatchObject({ total: 5, valid: 1, invalid: 4 });
     const bad = await request(t.app).get(`/api/v1/imports/${up.body.job.id}/rows?invalidOnly=true`).set(bearer(owner));
-    expect(bad.body.items.map((r: { rowNo: number }) => r.rowNo)).toEqual([2, 3, 4]);
+    expect(bad.body.items.map((r: { rowNo: number }) => r.rowNo)).toEqual([2, 3, 4, 5]);
+    expect(JSON.stringify(bad.body.items[3].issues)).toContain('unitPrice');
     expect(JSON.stringify(bad.body.items[1].issues)).toContain('Unknown tax codes');
 
     const strict = await request(t.app).post(`/api/v1/imports/${up.body.job.id}/commit`).set(bearer(owner)).send({});

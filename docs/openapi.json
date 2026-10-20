@@ -5574,6 +5574,30 @@
           }
         }
       }
+    },
+    "/internal/cron/sweep": {
+      "get": {
+        "summary": "Run ETA submission/polling/reconciliation, imports and the email outbox (cron only)",
+        "tags": [
+          "Internal"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}
